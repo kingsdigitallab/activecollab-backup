@@ -15,7 +15,7 @@ AC_HEADERS = {
 }
 
 def get(api_path, params=None):
-    r = requests.get('{}{}'.format(
+    r = requests.get('{0}{1}'.format(
         AC_BASE_URL, api_path), params=simplejson.dumps(params),
         headers=AC_HEADERS)
 
@@ -23,7 +23,7 @@ def get(api_path, params=None):
 
 
 def post(api_path, params=None):
-    r = requests.post('{}{}'.format(
+    r = requests.post('{0}{1}'.format(
         AC_BASE_URL, api_path), data=simplejson.dumps(params),
         headers=AC_HEADERS)
 
@@ -31,12 +31,12 @@ def post(api_path, params=None):
 
 
 def put(api_path, params=None):
-    r = requests.put('{}{}'.format(AC_BASE_URL, api_path),
+    r = requests.put('{0}{1}'.format(AC_BASE_URL, api_path),
                      data=simplejson.dumps(params), headers=AC_HEADERS)
     return r.json()
 
 
 def upload(files):
-    r = requests.post('{}upload-files'.format(
+    r = requests.post('{0}upload-files'.format(
         AC_BASE_URL), files=files, headers=AC_HEADERS_UPLOAD)
     return r.json()

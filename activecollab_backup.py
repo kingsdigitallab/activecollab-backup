@@ -14,7 +14,7 @@ from glob import glob
 # Set your variables here:
 # ############################################
 
-BACKUP_DIR = "/vol/kdldata/ActiveCollabBackup"
+BACKUP_DIR = "/Users/brian/Downloads"
 
 KEEP_DAILY = 7
 KEEP_WEEKLY = 4
@@ -94,29 +94,29 @@ def daily():
         create_dir(discussions_dir)
 
         # Get Project Notes
-        notes = ac.get("projects/{}/notes".format(pid))
+        notes = ac.get("projects/{0}/notes".format(pid))
         save_file(notes, os.path.join(project_dir, "notes.json"))
 
         # Get Project Tasks
-        tasks = ac.get("projects/{}/tasks".format(pid))
+        tasks = ac.get("projects/{0}/tasks".format(pid))
         save_file(tasks, os.path.join(project_dir, "tasks.json"))
 
         if len(tasks['tasks']):
             for task in tasks['tasks']:
                 tid = task['id']
-                tasks = ac.get("projects/{}/tasks/{}".format(pid, tid))
-                save_file(task, os.path.join(tasks_dir, "{}.json".format(tid)))
+                tasks = ac.get("projects/{0}/tasks/{1}".format(pid, tid))
+                save_file(task, os.path.join(tasks_dir, "{0}.json".format(tid)))
 
         
         # Get Project Discussions
-        discussions = ac.get("projects/{}/discussions".format(pid))
+        discussions = ac.get("projects/{0}/discussions".format(pid))
         save_file(discussions, os.path.join(project_dir, "discussions.json"))
 
         if len(discussions['discussions']):
             for discussion in discussions['discussions']:
                 did = discussion['id']
-                discussion = ac.get("projects/{}/discussions/{}".format(pid, did))
-                save_file(discussion, os.path.join(discussions_dir, "{}.json".format(did)))
+                discussion = ac.get("projects/{0}/discussions/{1}".format(pid, did))
+                save_file(discussion, os.path.join(discussions_dir, "{0}.json".format(did)))
 
 
     # Get Archived Projects
@@ -136,29 +136,29 @@ def daily():
         create_dir(discussions_dir)
 
         # Get Project Notes
-        notes = ac.get("projects/{}/notes".format(pid))
+        notes = ac.get("projects/{0}/notes".format(pid))
         save_file(notes, os.path.join(project_dir, "notes.json"))
 
         # Get Project Tasks
-        tasks = ac.get("projects/{}/tasks".format(pid))
+        tasks = ac.get("projects/{0}/tasks".format(pid))
         save_file(tasks, os.path.join(project_dir, "tasks.json"))
 
         if len(tasks['tasks']):
             for task in tasks['tasks']:
                 tid = task['id']
-                tasks = ac.get("projects/{}/tasks/{}".format(pid, tid))
-                save_file(task, os.path.join(tasks_dir, "{}.json".format(tid)))
+                tasks = ac.get("projects/{0}/tasks/{1}".format(pid, tid))
+                save_file(task, os.path.join(tasks_dir, "{0}.json".format(tid)))
 
         
         # Get Project Discussions
-        discussions = ac.get("projects/{}/discussions".format(pid))
+        discussions = ac.get("projects/{0}/discussions".format(pid))
         save_file(discussions, os.path.join(project_dir, "discussions.json"))
 
         if len(discussions['discussions']):
             for discussion in discussions['discussions']:
                 did = discussion['id']
-                discussion = ac.get("projects/{}/discussions/{}".format(pid, did))
-                save_file(discussion, os.path.join(discussions_dir, "{}.json".format(did)))
+                discussion = ac.get("projects/{0}/discussions/{1}".format(pid, did))
+                save_file(discussion, os.path.join(discussions_dir, "{0}.json".format(did)))
 
     # Rotate!
     rotate(DAILY_DIR, KEEP_DAILY)
@@ -186,7 +186,7 @@ def rotate(folder, keep):
     scan_path = os.path.join(BACKUP_DIR, folder, "*")
     # Being safe in case of implementation differences
     if not scan_path.endswith("/"):
-        scan_path = "{}/".format(scan_path)
+        scan_path = "{0}/".format(scan_path)
     folders = sorted(glob(scan_path))
     for folder in folders[:-keep]:
         shutil.rmtree(folder)
