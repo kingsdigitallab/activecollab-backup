@@ -7,7 +7,7 @@ with open('ac_secrets.json.nogit') as f:
     ac_secrets = simplejson.loads(f.read())
 
 
-AC_BASE_URL = 'http://app.activecollab.com/148987/api/v1/'
+AC_BASE_URL = 'https://app.activecollab.com/148987/api/v1/'
 AC_TOKEN = ac_secrets['ac_token']
 AC_HEADERS = {
     'X-Angie-AuthApiToken': AC_TOKEN,
