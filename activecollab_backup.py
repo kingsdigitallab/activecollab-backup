@@ -14,7 +14,7 @@ from glob import glob
 # Set your variables here:
 # ############################################
 
-BACKUP_DIR = "/Users/brian/Downloads"
+BACKUP_DIR = "/vol/kdldata/ActiveCollabBackup"
 
 KEEP_DAILY = 7
 KEEP_WEEKLY = 4
