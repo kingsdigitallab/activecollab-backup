@@ -19,8 +19,8 @@ BACKUP_DIR = "/vol/kdldata/ActiveCollabBackup"
 KEEP_DAILY = 7
 KEEP_WEEKLY = 4
 
-WEEKLY_DOW = 3 # Day of week (Default 6 = Sunday)
-MONTHLY_DOM = 25 # Day of the month (Default 1st)
+WEEKLY_DOW = 6 # Day of week (Default 6 = Sunday)
+MONTHLY_DOM = 1 # Day of the month (Default 1st)
 
 # ############################################
 # Stop editing here!
