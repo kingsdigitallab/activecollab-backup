@@ -142,10 +142,12 @@ def daily():
         project_dir = os.path.join(CWD, "projects/archived", str(pid))
         tasks_dir = os.path.join(project_dir, "tasks")
         discussions_dir = os.path.join(project_dir, "discussions")
+        archived_tasks_dir = os.path.join(tasks_dir, "archived")
 
         create_dir(project_dir)
         create_dir(tasks_dir)
         create_dir(discussions_dir)
+        create_dir(archived_tasks_dir)
 
         # Get Project Notes
         notes = ac.get("projects/{0}/notes".format(pid))
@@ -159,7 +161,7 @@ def daily():
             for task in tasks['tasks']:
                 tid = task['id']
                 task_json = ac.get("projects/{0}/tasks/{1}".format(pid, tid))
-                save_file(task, os.path.join(task_json, "{0}.json".format(tid)))
+                save_file(task_json, os.path.join(tasks_dir, "{0}.json".format(tid)))
 
          # Get Archived (complete) Tasks
         tasks = ac.get("projects/{0}/tasks/archive".format(pid))
