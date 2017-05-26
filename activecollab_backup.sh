@@ -1,4 +1,4 @@
 #!/bin/bash
-source env/bin/activate
-python activecollab_backup.py
+source /vol/linux/bin/activecollab-backup/env/bin/activate
+python /vol/linux/bin/activecollab-backup/activecollab_backup.py
 deactivate
