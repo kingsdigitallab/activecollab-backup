@@ -15,6 +15,7 @@ from glob import glob
 # ############################################
 
 BACKUP_DIR = '/vol/kdldata/ActiveCollabBackup'
+#BACKUP_DIR = '/Users/brian/Downloads'
 
 KEEP_DAILY = 7
 KEEP_WEEKLY = 4
@@ -78,7 +79,17 @@ def daily():
     save_file(invoices, 'invoices.json')
 
     # Get Projects
-    projects = ac.get('projects')
+    projects = []
+    project_page = []
+
+    # Iterate over until we get an empty list...
+    page = 1
+
+    while page == 1 or not len(project_page) == 0:
+        project_page = ac.get('projects?page={0}'.format(page))
+        projects = projects + project_page
+        page = page + 1
+
     save_file(projects, 'projects.json')
 
     for project in projects:
@@ -132,7 +143,16 @@ def daily():
 
 
     # Get Archived Projects
-    archived_projects = ac.get('projects/archive')
+    archived_projects = []
+    project_page = []
+
+    # Iterate over until we get an empty list...
+    page = 1
+    while page == 1 or not len(project_page) == 0:
+        project_page = ac.get('projects/archive?page={0}'.format(page))
+        archived_projects = archived_projects + project_page
+        page = page + 1
+
     save_file(archived_projects, 'archived_projects.json')
 
     for project in archived_projects:

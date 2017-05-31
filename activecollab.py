@@ -3,6 +3,7 @@ import simplejson
 
 ac_secrets = {}
 
+#with open('ac_secrets.json.nogit') as f:
 with open('/vol/linux/bin/activecollab-backup/ac_secrets.json.nogit') as f:
     ac_secrets = simplejson.loads(f.read())
 
