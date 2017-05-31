@@ -120,8 +120,18 @@ def daily():
                 task_json = ac.get('projects/{0}/tasks/{1}'.format(pid, tid))
                 save_file(task_json, os.path.join(tasks_dir, '{0}.json'.format(tid)))
 
+        # Get Archived Tasks
+        tasks = []
+        task_page = []
+
+        # Iterate over until we get an empty list...
+        page = 1
+        while page == 1 or not len(task_page) == 0:
+            task_page = ac.get('projects/{0}/tasks/archive?page={1}'.format(pid, page))
+            tasks = tasks + task_page
+            page = page + 1
+
         # Get Archived (complete) Tasks
-        tasks = ac.get('projects/{0}/tasks/archive'.format(pid))
         save_file(tasks, os.path.join(project_dir, 'archived-tasks.json'))
 
         if len(tasks):
@@ -184,7 +194,16 @@ def daily():
                 save_file(task_json, os.path.join(tasks_dir, '{0}.json'.format(tid)))
 
          # Get Archived (complete) Tasks
-        tasks = ac.get('projects/{0}/tasks/archive'.format(pid))
+        tasks = []
+        task_page = []
+
+        # Iterate over until we get an empty list...
+        page = 1
+        while page == 1 or not len(task_page) == 0:
+            task_page = ac.get('projects/{0}/tasks/archive?page={1}'.format(pid, page))
+            tasks = tasks + task_page
+            page = page + 1
+
         save_file(tasks, os.path.join(project_dir, 'archived-tasks.json'))
 
         if len(tasks):
