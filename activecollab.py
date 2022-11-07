@@ -3,8 +3,8 @@ import simplejson
 
 ac_secrets = {}
 
-#with open('ac_secrets.json.nogit') as f:
-with open('/vol/linux/bin/activecollab-backup/ac_secrets.json.nogit') as f:
+with open('ac_secrets.json.nogit') as f:
+#with open('/vol/linux/bin/activecollab-backup/ac_secrets.json.nogit') as f:
     ac_secrets = simplejson.loads(f.read())
 
 
@@ -22,6 +22,11 @@ def get(api_path, params=None):
 
     return r.json()
 
+def get_nojson(api_path, params=None):
+    r = requests.get('{0}{1}'.format(
+        AC_BASE_URL, api_path), params=simplejson.dumps(params),
+        headers=AC_HEADERS)
+    return r
 
 def post(api_path, params=None):
     r = requests.post('{0}{1}'.format(

@@ -10,18 +10,21 @@ import activecollab as ac
 
 from glob import glob
 
+with open('ac_secrets.json.nogit') as f:
+    ac_secrets = simplejson.loads(f.read())
+
 # ############################################
 # Set your variables here:
 # ############################################
 
-BACKUP_DIR = '/vol/kdldata/ActiveCollabBackup'
-#BACKUP_DIR = '/Users/brian/Downloads'
+#BACKUP_DIR = '/vol/kdldata/ActiveCollabBackup'
+BACKUP_DIR = '/Users/brian/Downloads'
 
 # ############################################
 # Stop editing here!
 # ############################################
 
-ATTACH_DIR = 'attachments'
+ATTACH_DIR = 'attachments/{0}'.format(time.strftime('%Y%m%d%H%M%S'))
 
 # Current working directory
 CWD = os.path.join(BACKUP_DIR, ATTACH_DIR)
@@ -82,11 +85,14 @@ def download_attachments():
         for f in files:
             fid = f['id']
             fclass = f['class']
+            fname = '{0}__{1}'.format(fid, f['name'])
             furl = f['download_url']
 
+            furl = furl.replace('--DOWNLOAD-TOKEN--', ac_secrets['download_token'])
+
             # Check if it's google drive, if it is, we aren't bothered.
-            if not fclass == 'GoogleDriveFile':
-                fpath = os.path.join(attachment_dir, str(fid))
+            if not 'Google' in fclass:
+                fpath = os.path.join(attachment_dir, str(fname))
 
                 # Does it already exist?
                 if not os.path.isfile(fpath):
@@ -103,7 +109,7 @@ def create_dir(directory):
 
 # Saves a JSON file to the current working directory
 def save_file(jsonfile, filename):
-    with open(os.path.join(CWD, filename), 'wb') as outfile:
+    with open(os.path.join(CWD, filename), 'w') as outfile:
         simplejson.dump(jsonfile, outfile)
 
 if __name__ == '__main__':

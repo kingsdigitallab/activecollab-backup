@@ -10,26 +10,21 @@ import activecollab as ac
 
 from glob import glob
 
+
 # ############################################
 # Set your variables here:
 # ############################################
 
-BACKUP_DIR = '/vol/kdldata/ActiveCollabBackup'
-#BACKUP_DIR = '/Users/brian/Downloads'
+#BACKUP_DIR = '/vol/kdldata/ActiveCollabBackup'
+BACKUP_DIR = '/Users/brian/Downloads'
 
-KEEP_DAILY = 7
-KEEP_WEEKLY = 4
 
-WEEKLY_DOW = 6 # Day of week (Default 6 = Sunday)
-MONTHLY_DOM = 1 # Day of the month (Default 1st)
 
 # ############################################
 # Stop editing here!
 # ############################################
 
 DAILY_DIR = 'daily'
-WEEKLY_DIR = 'weekly'
-MONTHLY_DIR = 'monthly'
 
 FOLDER_NAME = time.strftime('%Y%m%d%H%M%S')
 
@@ -39,12 +34,8 @@ CWD = os.path.join(BACKUP_DIR, DAILY_DIR, FOLDER_NAME)
 def main():
     # Ensure folder structure
     create_dir(os.path.join(BACKUP_DIR, DAILY_DIR))
-    create_dir(os.path.join(BACKUP_DIR, WEEKLY_DIR))
-    create_dir(os.path.join(BACKUP_DIR, MONTHLY_DIR))
 
     daily()
-    weekly()
-    monthly()
 
 # Run a daily backup
 def daily():
@@ -54,6 +45,14 @@ def daily():
     create_dir(os.path.join(CWD, 'projects'))
     create_dir(os.path.join(CWD, 'projects/archived'))
 
+   # Get job types
+    job_types = ac.get('job-types')
+    save_file(job_types, 'job_types.json')
+
+    # Get Expense Categories
+    expense_categories = ac.get('expense-categories')
+    save_file(expense_categories, 'expense_categories.json')
+
     # Get Categories
     categories = ac.get('projects/categories')
     save_file(categories, 'categories.json')
@@ -61,6 +60,12 @@ def daily():
     # Get Labels
     labels = ac.get('projects/labels')
     save_file(labels, 'labels.json')
+
+   # Get Task Labels
+    task_labels = ac.get('labels/task-labels')
+    save_file(task_labels, 'task_labels.json')
+
+
 
     # Get Companies
     companies = ac.get('companies')
@@ -106,6 +111,14 @@ def daily():
         create_dir(discussions_dir)
         create_dir(archived_tasks_dir)
 
+        # Get Project Expenses
+        expenses = ac.get('projects/{0}/expenses'.format(pid))
+        save_file(expenses, os.path.join(project_dir, 'expenses.json'))
+
+        # Get time records
+        time_records = ac.get('projects/{0}/time-records'.format(pid))
+        save_file(time_records, os.path.join(project_dir, 'time-records.json'))
+
         # Get Project Notes
         notes = ac.get('projects/{0}/notes'.format(pid))
         save_file(notes, os.path.join(project_dir, 'notes.json'))
@@ -114,11 +127,20 @@ def daily():
         tasks = ac.get('projects/{0}/tasks'.format(pid))
         save_file(tasks, os.path.join(project_dir, 'tasks.json'))
 
+ 
+
         if len(tasks['tasks']):
             for task in tasks['tasks']:
                 tid = task['id']
                 task_json = ac.get('projects/{0}/tasks/{1}'.format(pid, tid))
-                save_file(task_json, os.path.join(tasks_dir, '{0}.json'.format(tid)))
+                task_dir = os.path.join(tasks_dir, '{0}'.format(tid))
+                create_dir(task_dir)
+                save_file(task_json, os.path.join(task_dir, 'tasks.json'))
+
+                if task['total_subtasks'] > 0:
+                    subtask_json = ac.get('projects/{0}/tasks/{1}/subtasks'.format(pid, tid))
+                    save_file(subtask_json, os.path.join(task_dir, 'subtasks.json'))
+
 
         # Get Archived Tasks
         tasks = []
@@ -138,7 +160,14 @@ def daily():
             for task in tasks:
                 tid = task['id']
                 task_json = ac.get('projects/{0}/tasks/{1}'.format(pid, tid))
-                save_file(task_json, os.path.join(archived_tasks_dir, '{0}.json'.format(tid)))
+                task_dir = os.path.join(archived_tasks_dir, '{0}'.format(tid))
+                create_dir(task_dir)
+                save_file(task_json, os.path.join(task_dir, 'tasks.json'))
+
+                if task['total_subtasks'] > 0:
+                    subtask_json = ac.get('projects/{0}/tasks/{1}/subtasks'.format(pid, tid))
+                    save_file(subtask_json, os.path.join(task_dir, 'subtasks.json'))
+
 
         
         # Get Project Discussions
@@ -178,6 +207,14 @@ def daily():
         create_dir(tasks_dir)
         create_dir(discussions_dir)
         create_dir(archived_tasks_dir)
+
+        # Get Project Expenses
+        expenses = ac.get('projects/{0}/expenses'.format(pid))
+        save_file(expenses, os.path.join(project_dir, 'expenses.json'))
+
+        # Get time records
+        time_records = ac.get('projects/{0}/time-records'.format(pid))
+        save_file(time_records, os.path.join(project_dir, 'time-records.json'))
 
         # Get Project Notes
         notes = ac.get('projects/{0}/notes'.format(pid))
@@ -223,40 +260,14 @@ def daily():
                 discussion = ac.get('projects/{0}/discussions/{1}'.format(pid, did))
                 save_file(discussion, os.path.join(discussions_dir, '{0}.json'.format(did)))
 
-    # Rotate!
-    rotate(DAILY_DIR, KEEP_DAILY)
-
-# Organise weekly backups
-def weekly():
-    if datetime.datetime.today().weekday() == WEEKLY_DOW:
-        shutil.copytree(CWD, os.path.join(BACKUP_DIR, WEEKLY_DIR, FOLDER_NAME))
-
-    # Rotate!
-    rotate(WEEKLY_DIR, KEEP_WEEKLY)
-
-# Organise monthly backups
-def monthly():
-    if datetime.datetime.today().day == MONTHLY_DOM:
-        shutil.copytree(CWD, os.path.join(BACKUP_DIR, MONTHLY_DIR, FOLDER_NAME))
-
 # Creates a directory if it doesn't exist
 def create_dir(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-# Quick method for rotating backups
-def rotate(folder, keep):
-    scan_path = os.path.join(BACKUP_DIR, folder, '*')
-    # Being safe in case of implementation differences
-    if not scan_path.endswith('/'):
-        scan_path = '{0}/'.format(scan_path)
-    folders = sorted(glob(scan_path))
-    for folder in folders[:-keep]:
-        shutil.rmtree(folder)
-
 # Saves a JSON file to the current working directory
 def save_file(jsonfile, filename):
-    with open(os.path.join(CWD, filename), 'wb') as outfile:
+    with open(os.path.join(CWD, filename), 'w') as outfile:
         simplejson.dump(jsonfile, outfile)
 
 if __name__ == '__main__':
