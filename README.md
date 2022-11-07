@@ -1,6 +1,8 @@
 # activecollab-backup
 Script for backing up data from an ActiveCollab cloud instance.
 
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/kingsdigitallab/activecollab-backup)
+
 ## Installation
 * Create a virtual environment `env` in the directory (this will be ignored by git): `virtualenv env`
 * Install requirements into the virtual environment `source env/bin/activate && pip install -r requirements.txt && deactivate`
