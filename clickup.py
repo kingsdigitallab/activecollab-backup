@@ -1,6 +1,7 @@
 import json
 import os
 import requests
+from datetime import datetime
 from functools import lru_cache
 
 default_api_version = "v2"
@@ -58,16 +59,13 @@ class ClickUp:
         return response.json()
 
     @lru_cache
-    def team(self):
-        if not self._team:
-            self._team = self.get(f"team/{self.team_id}/team")["team"]
-
-        return self._team
+    def get_team(self):
+        return self.get(f"team/{self.team_id}/team")["team"]
 
     @lru_cache
     def get_member(self, email: str) -> dict:
         found = list(
-            filter(lambda x: x["user"]["email"] == email, self.team["members"])
+            filter(lambda x: x["user"]["email"] == email, self.get_team()["members"])
         )
         if found:
             return found[0]
@@ -76,12 +74,12 @@ class ClickUp:
         return list(
             filter(
                 lambda x: x["user"]["email"] == "kdl-support@kcl.ac.uk",
-                self.team["members"],
+                self.get_team()["members"],
             )
         )[0]
 
     @lru_cache
-    def get_space(self, name: str) -> dict:
+    def get_or_create_space(self, name: str) -> dict:
         name = name.capitalize()
 
         space = list(filter(lambda x: x["name"] == name, self.get_spaces()))
@@ -117,7 +115,7 @@ class ClickUp:
         return self.get(f"team/{self.team_id}/space")["spaces"]
 
     @lru_cache
-    def get_folder(self, space: int, name: str) -> dict:
+    def get_or_create_folder(self, space: int, name: str) -> dict:
         if folders := self.get_folders(space):
             folder = list(filter(lambda x: x["name"] == name, folders))
             if folder:
@@ -133,13 +131,13 @@ class ClickUp:
         return self.get(f"space/{space}/folder")["folders"]
 
     @lru_cache
-    def get_doc(self, folder: int, name: str) -> dict:
+    def get_or_create_doc(self, folder: int, name: str) -> dict:
         if docs := self.get_folder_views(folder):
             doc = list(filter(lambda x: x["name"] == name and x["type"] == "doc", docs))
             if doc:
                 return doc[0]
 
-        payload = dict(name=name, type="doc")
+        payload = dict(name=name, type="doc", parent=dict(id=folder, type=5))
         doc = self.post(f"folder/{folder}/view", payload)["view"]
 
         return doc
@@ -150,7 +148,7 @@ class ClickUp:
 
     # Document page maps to a note in AC
     @lru_cache
-    def get_page(self, doc: str, name: str, body: str) -> dict:
+    def get_or_create_page(self, doc: str, name: str, body: str) -> dict:
         if pages := self.get_pages(doc):
             page = list(filter(lambda x: x["name"] == name, pages))
             if page:
@@ -164,7 +162,6 @@ class ClickUp:
     @lru_cache
     def get_pages(self, doc: int) -> list:
         pages = self.get(f"view/{doc}/page", version="v1")
-        print(pages)
         return pages["pages"]
 
 
@@ -177,7 +174,7 @@ def import_ac_labels(click_up: ClickUp, path: str = "data/labels.json") -> None:
     spaces = {}
 
     for label in ac_labels:
-        space = click_up.get_space(label["name"])
+        space = click_up.get_or_create_space(label["name"])
         print(f"- {space['name']}")
 
         spaces[label["id"]] = space
@@ -196,25 +193,38 @@ def import_ac_projects(click_up: ClickUp, spaces: dict, path: str = "data") -> N
 
     for project in ac_projects:
         space = spaces[project["label_id"]]["id"]
-        folder = click_up.get_folder(space, project["name"])
+        
+        folder = click_up.get_or_create_folder(space, project["name"])
+        folders[project["id"]] = folder
         print(f"- {folder['name']}")
 
-        doc = click_up.get_doc(folder["id"], "Documents")
-        print("doc id", doc["id"])
-        page = click_up.get_page(doc["id"], "About", project["body"])
-        print(page)
-
-        folders[project["id"]] = folder
+        doc = click_up.get_or_create_doc(folder["id"], "Documents")
+        page = click_up.get_or_create_page(doc["id"], "About", project["body"])
         docs[project["id"]] = doc
 
         # Import notes/documents!
         # Important fields are: name, body_plain_text, created_by_id, created_by_name
-        # with open(os.path.join(path, project["id"], "notes.json")) as f:
-        #     project_notes = json.load(f)
+        with open(
+            os.path.join(path, "projects", str(project["id"]), "notes.json")
+        ) as f:
+            project_notes = json.load(f)
 
-        # for note in project_notes:
-        #     print("Adding note to {doc}")
-        #     add_doc_page(doc, note["name"], node["body_plain_text"])
+        for note in project_notes:
+            body = f"Originally created by {note['created_by_name']}"
+            body = f"{body} on {getDate(note['created_on'])}"
+            body = f"{body}\n\n---\n\n{note['body_plain_text']}"
+            click_up.get_or_create_page(doc["id"], note["name"], body)
+
+        # import tasks
+        with open(os.path.join(path, "projects", str(project["id"]), "tasks.json") as f:
+            project_tasks = json.load(f)
+
+
+
+
+def getDate(timestamp: int) -> str:
+    dt = datetime.fromtimestamp(timestamp)
+    return dt.strftime("%Y-%m-%d, %H:%M:%S")
 
 
 if __name__ == "__main__":
@@ -228,7 +238,7 @@ if __name__ == "__main__":
     spaces = import_ac_labels(click_up)
     print()
 
-    import_ac_projects(click_up, spaces)
+    projects = import_ac_projects(click_up, spaces)
     print()
 
     # space = click_up.create_space("API test Test")
