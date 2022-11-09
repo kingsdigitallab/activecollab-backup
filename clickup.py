@@ -15,9 +15,21 @@ class ClickUp:
         self.api_tokens = {}
 
         self.api_urls["v1"] = f"https://app.clickup.com/docs/v1"
-        self.api_urls["v2"] = f"https://api.clickup.com/api/v2/team/{self.team_id}"
+        self.api_urls["v2"] = f"https://api.clickup.com/api/v2"
         self.api_tokens["v1"] = api_token_v1
         self.api_tokens["v2"] = api_token_v2
+
+    def get(
+        self, endpoint: str, params: dict = None, version: str = default_api_version
+    ) -> dict:
+        url = f"{self.get_api_url(version)}/{endpoint}"
+        headers = self.get_headers(version)
+
+        print(f"GET {url}")
+        print(f"Headers {headers}")
+
+        response = requests.get(url, headers=headers, params=params)
+        return response.json()
 
     def get_api_url(self, version: str = default_api_version) -> str:
         return self.api_urls.get(version)
@@ -37,25 +49,18 @@ class ClickUp:
     def get_api_token(self, version: str = default_api_version) -> str:
         return self.api_tokens.get(version)
 
-    def get(
-        self, endpoint: str, params: dict = None, version: str = default_api_version
-    ) -> dict:
-        url = f"{self.get_api_url(version)}/{endpoint}"
-        print(f"Fetching {url}")
-        response = requests.get(url, headers=self.get_headers(version), params=params)
-        return response.json()
-
     def post(
         self, endpoint: str, payload: dict = None, version: str = default_api_version
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
+        print(f"POST {url}")
         response = requests.post(url, headers=self.get_headers(version), json=payload)
         return response.json()
 
     @lru_cache
     def team(self):
         if not self._team:
-            self._team = self.get(f"/team/{self.team_id}/team")["team"]
+            self._team = self.get(f"team/{self.team_id}/team")["team"]
 
         return self._team
 
@@ -109,7 +114,7 @@ class ClickUp:
 
     @lru_cache
     def get_spaces(self) -> dict:
-        return self.get("space")["spaces"]
+        return self.get(f"team/{self.team_id}/space")["spaces"]
 
     @lru_cache
     def get_folder(self, space: int, name: str) -> dict:
@@ -119,7 +124,7 @@ class ClickUp:
                 return folder[0]
 
         payload = dict(name=name)
-        folder = self.post(f"/space/{space}/folder", payload)
+        folder = self.post(f"space/{space}/folder", payload)
 
         return folder
 
@@ -135,23 +140,32 @@ class ClickUp:
                 return doc[0]
 
         payload = dict(name=name, type="doc")
-        doc = self.post(f"/folder/{folder}/view", payload)
+        doc = self.post(f"folder/{folder}/view", payload)["view"]
 
         return doc
 
+    @lru_cache
+    def get_folder_views(self, folder: int) -> list:
+        return self.get(f"folder/{folder}/view")["views"]
+
     # Document page maps to a note in AC
     @lru_cache
-    def add_doc_page(self, doc: int, name: str, body: str) -> dict:
+    def get_page(self, doc: str, name: str, body: str) -> dict:
+        if pages := self.get_pages(doc):
+            page = list(filter(lambda x: x["name"] == name, pages))
+            if page:
+                return page[0]
 
         payload = {"name": name, "content": body}
-
-        page = (self.post(f"/view/{doc}/pages/", payload, "v1"),)
+        page = self.post(f"view/{doc}/page", payload, "v1")
 
         return page
 
     @lru_cache
-    def get_folder_views(self, folder: int) -> dict:
-        return self.get(f"/folder/{folder}/view")["views"]
+    def get_pages(self, doc: int) -> list:
+        pages = self.get(f"view/{doc}/page", version="v1")
+        print(pages)
+        return pages["pages"]
 
 
 def import_ac_labels(click_up: ClickUp, path: str = "data/labels.json") -> None:
@@ -186,18 +200,21 @@ def import_ac_projects(click_up: ClickUp, spaces: dict, path: str = "data") -> N
         print(f"- {folder['name']}")
 
         doc = click_up.get_doc(folder["id"], "Documents")
+        print("doc id", doc["id"])
+        page = click_up.get_page(doc["id"], "About", project["body"])
+        print(page)
 
         folders[project["id"]] = folder
         docs[project["id"]] = doc
 
         # Import notes/documents!
         # Important fields are: name, body_plain_text, created_by_id, created_by_name
-        with open(os.path.join(path, project["id"], "notes.json")) as f:
-            project_notes = json.load(f)
+        # with open(os.path.join(path, project["id"], "notes.json")) as f:
+        #     project_notes = json.load(f)
 
-        for note in project_notes:
-            print("Adding note to {doc}")
-            add_doc_page(doc, note["name"], node["body_plain_text"])
+        # for note in project_notes:
+        #     print("Adding note to {doc}")
+        #     add_doc_page(doc, note["name"], node["body_plain_text"])
 
 
 if __name__ == "__main__":
