@@ -89,7 +89,7 @@ def import_ac_projects(
             with open(os.path.join(task_path, "tasks.json"), "r") as f:
                 ac_task = json.load(f)
 
-            tasks[ac_task['single']["id"]] = import_ac_task(
+            tasks[ac_task["single"]["id"]] = import_ac_task(
                 clickup, task_list["id"], ac_task, members
             )
 
@@ -124,7 +124,7 @@ def import_ac_task(
     )
 
     if assignee := members.get(single["assignee_id"]):
-        details["assignees"] = [assignee]
+        details["assignees"] = [assignee["user"]["id"]]
 
     if due_date := single["due_on"]:
         details["due_date"] = due_date * 1000
@@ -132,19 +132,20 @@ def import_ac_task(
     if start_date := single["start_on"]:
         details["start_date"] = start_date * 1000
 
-    return clickup.get_or_create_task(
-        task_list_id, single["name"], json.dumps(details)
-    )
+    return clickup.get_or_create_task(task_list_id, single["name"], json.dumps(details))
 
 
 def is_task_importable(ac_task: dict) -> bool:
     if ac_task["tracked_time"] > 0:
         return True
 
+    if ac_task["tracked_expenses"] > 0:
+        return True
+
     if ac_task["single"]["comments_count"] > 0:
         return True
 
-    if get_task_status(ac_task) != "Ope":
+    if get_task_status(ac_task) != "Open":
         return True
 
     return False
