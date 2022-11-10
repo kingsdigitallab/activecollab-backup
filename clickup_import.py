@@ -84,16 +84,13 @@ def import_ac_projects(
         with open(os.path.join(project_path, "tasks.json")) as f:
             project_tasks = json.load(f)
 
-        task_lists = {tl["id"]: tl for tl in project_tasks["task_lists"]}
-        # pprint(task_lists)
-
         for pt in project_tasks["tasks"]:
             task_path = os.path.join(project_path, "tasks", str(pt["id"]))
             with open(os.path.join(task_path, "tasks.json"), "r") as f:
-                ac_task = json.load(f)["single"]
+                ac_task = json.load(f)
 
-            tasks[ac_task["id"]] = import_ac_task(
-                clickup, task_list["id"], ac_task, task_lists, members
+            tasks[ac_task['single']["id"]] = import_ac_task(
+                clickup, task_list["id"], ac_task, members
             )
 
 
@@ -107,37 +104,57 @@ def import_ac_note(clickup: ClickUp, doc: str, name: str, body: str) -> dict:
 
 
 def import_ac_task(
-    clickup: ClickUp, task_list_id: int, ac_task: dict, task_lists: dict, members: dict
+    clickup: ClickUp, task_list_id: int, ac_task: dict, members: dict
 ) -> dict:
-    status = getTaskStatus(ac_task["task_list_id"], task_lists)
+    if not is_task_importable(ac_task):
+        return None
+
+    single = ac_task["single"]
+    status = get_task_status(ac_task)
 
     details = dict(
-        description=ac_task["body"],
+        description=single["body"],
         assignees=[],
         tags=[],
         status=status,
-        priority=1 if ac_task["is_important"] else 3,
+        priority=1 if single["is_important"] else 3,
         due_date_time=False,
-        time_estimate=ac_task["estimate"] * 60 * 60,
+        time_estimate=single["estimate"] * 60 * 60,
         start_date_time=False,
     )
 
-    if assignee := members.get(ac_task["assignee_id"]):
+    if assignee := members.get(single["assignee_id"]):
         details["assignees"] = [assignee]
 
-    if due_date := ac_task["due_on"]:
+    if due_date := single["due_on"]:
         details["due_date"] = due_date * 1000
 
-    if start_date := ac_task["start_on"]:
+    if start_date := single["start_on"]:
         details["start_date"] = start_date * 1000
 
     return clickup.get_or_create_task(
-        task_list_id, ac_task["name"], json.dumps(details)
+        task_list_id, single["name"], json.dumps(details)
     )
 
 
-def getTaskStatus(list_id: int, task_lists: dict) -> str:
-    name = task_lists[list_id]["name"].lower()
+def is_task_importable(ac_task: dict) -> bool:
+    if ac_task["tracked_time"] > 0:
+        return True
+
+    if ac_task["single"]["comments_count"] > 0:
+        return True
+
+    if get_task_status(ac_task) != "Ope":
+        return True
+
+    return False
+
+
+def get_task_status(ac_task: dict) -> str:
+    if ac_task["single"]["is_completed"]:
+        return "Closed"
+
+    name = ac_task["task_list"]["name"].lower()
 
     if name == "inbox" or name == "to do":
         return "Open"
