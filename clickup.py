@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 
 import requests
@@ -24,8 +25,7 @@ class ClickUp:
         url = f"{self.get_api_url(version)}/{endpoint}"
         headers = self.get_headers(version)
 
-        print(f"GET {url}")
-        print(f"Headers {headers}")
+        print(f"--- GET {url}")
 
         response = requests.get(url, headers=headers, params=params)
         return response.json()
@@ -52,13 +52,13 @@ class ClickUp:
         self, endpoint: str, payload: dict = None, version: str = default_api_version
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
-        print(f"POST {url}")
+        print(f"--- POST {url}")
         response = requests.post(url, headers=self.get_headers(version), json=payload)
         return response.json()
 
     @lru_cache
     def get_team(self):
-        return self.get(f"team/{self.team_id}/team")["team"]
+        return self.get(f"team/{self.team_id}")["team"]
 
     @lru_cache
     def get_member(self, email: str) -> dict:
@@ -68,13 +68,7 @@ class ClickUp:
         if found:
             return found[0]
 
-        # return default user
-        return list(
-            filter(
-                lambda x: x["user"]["email"] == "kdl-support@kcl.ac.uk",
-                self.get_team()["members"],
-            )
-        )[0]
+        return None
 
     @lru_cache
     def get_or_create_space(self, name: str) -> dict:
@@ -104,9 +98,7 @@ class ClickUp:
                 "portfolios": {"enabled": True},
             },
         }
-        space = self.post(f"team/{self.team_id}/space", payload)
-
-        return space
+        return self.post(f"team/{self.team_id}/space", payload)
 
     @lru_cache
     def get_spaces(self) -> dict:
@@ -120,9 +112,7 @@ class ClickUp:
                 return folder[0]
 
         payload = dict(name=name)
-        folder = self.post(f"space/{space}/folder", payload)
-
-        return folder
+        return self.post(f"space/{space}/folder", payload)
 
     @lru_cache
     def get_folders(self, space: int) -> dict:
@@ -136,9 +126,7 @@ class ClickUp:
                 return doc[0]
 
         payload = dict(name=name, type="doc", parent=dict(id=folder, type=5))
-        doc = self.post(f"folder/{folder}/view", payload)["view"]
-
-        return doc
+        return self.post(f"folder/{folder}/view", payload)["view"]
 
     @lru_cache
     def get_folder_views(self, folder: int) -> list:
@@ -153,9 +141,7 @@ class ClickUp:
                 return page[0]
 
         payload = {"name": name, "content": body}
-        page = self.post(f"view/{doc}/page", payload, "v1")
-
-        return page
+        return self.post(f"view/{doc}/page", payload, "v1")
 
     @lru_cache
     def get_pages(self, doc: int) -> list:
@@ -170,10 +156,24 @@ class ClickUp:
                 return l[0]
 
         payload = dict(name=name)
-        l = self.post(f"folder/{folder}/list", payload)
-
-        return l
+        return self.post(f"folder/{folder}/list", payload)
 
     @lru_cache
-    def get_lists(self, folder: int) -> dict:
+    def get_lists(self, folder: int) -> list:
         return self.get(f"folder/{folder}/list")["lists"]
+
+    @lru_cache
+    def get_or_create_task(self, list_id: int, name: str, details: str) -> dict:
+        if tasks := self.get_tasks(list_id):
+            task = list(filter(lambda x: x["name"] == name, tasks))
+            if task:
+                return task[0]
+
+        payload = json.loads(details)
+        payload["name"] = name
+
+        return self.post(f"list/{list_id}/task", payload)
+
+    @lru_cache
+    def get_tasks(self, list_id: int) -> list:
+        return self.get(f"list/{list_id}/task")["tasks"]
