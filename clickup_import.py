@@ -143,6 +143,17 @@ def import_ac_projects(
                 clickup, task_list["id"], ac_task, members
             )
 
+        # import time records
+        with open(os.path.join(project_path, "time-records.json")) as f:
+            records = json.load(f)["time_records"]
+
+        for record in records:
+            parent_id = record["parent_id"]
+            if parent_id == project["id"]:
+                parent = folder
+            else:
+                parent = tasks[parent_id]
+
     return folders, docs, pages, tasks
 
 
@@ -199,7 +210,6 @@ def import_ac_task(
             ]
         )
 
-    pprint(task)
     task = clickup.update_task(task["id"], data)
 
     for subtask in ac_task["subtasks"]:
