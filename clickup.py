@@ -56,6 +56,14 @@ class ClickUp:
         response = requests.post(url, headers=self.get_headers(version), json=payload)
         return response.json()
 
+    def put(
+        self, endpoint: str, payload: dict = None, version: str = default_api_version
+    ) -> dict:
+        url = f"{self.get_api_url(version)}/{endpoint}"
+        print(f"--- PUT {url}")
+        response = requests.put(url, headers=self.get_headers(version), json=payload)
+        return response.json()
+
     @lru_cache
     def get_team(self):
         return self.get(f"team/{self.team_id}")["team"]
@@ -163,13 +171,13 @@ class ClickUp:
         return self.get(f"folder/{folder}/list")["lists"]
 
     @lru_cache
-    def get_or_create_task(self, list_id: int, name: str, details: str) -> dict:
+    def get_or_create_task(self, list_id: int, name: str, data: str) -> dict:
         if tasks := self.get_tasks(list_id):
             task = list(filter(lambda x: x["name"] == name, tasks))
             if task:
                 return task[0]
 
-        payload = json.loads(details)
+        payload = json.loads(data)
         payload["name"] = name
 
         return self.post(f"list/{list_id}/task", payload)
@@ -177,3 +185,7 @@ class ClickUp:
     @lru_cache
     def get_tasks(self, list_id: int) -> list:
         return self.get(f"list/{list_id}/task")["tasks"]
+
+    # no need to cache
+    def update_task(self, task: int, data: dict) -> dict:
+        return self.put(f"task/{task}", payload=data)

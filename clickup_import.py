@@ -43,6 +43,8 @@ def import_ac_projects(
 ) -> dict:
     print("Importing AC projects")
 
+    pprint(members)
+
     with open(os.path.join(path, "projects.json"), "r") as f:
         ac_projects = json.load(f)
 
@@ -112,27 +114,42 @@ def import_ac_task(
     single = ac_task["single"]
     status = get_task_status(ac_task)
 
-    details = dict(
+    data = dict(
         description=single["body"],
         assignees=[],
         tags=[],
         status=status,
-        priority=1 if single["is_important"] else 3,
+        priority=1 if single["is_important"] else None,
         due_date_time=False,
         time_estimate=single["estimate"] * 60 * 60,
         start_date_time=False,
     )
 
-    if assignee := members.get(single["assignee_id"]):
-        details["assignees"] = [assignee["user"]["id"]]
+    if member := members.get(single["assignee_id"]):
+        data["assignees"] = [member["user"]["id"]]
 
     if due_date := single["due_on"]:
-        details["due_date"] = due_date * 1000
+        data["due_date"] = due_date * 1000
 
     if start_date := single["start_on"]:
-        details["start_date"] = start_date * 1000
+        data["start_date"] = start_date * 1000
 
-    return clickup.get_or_create_task(task_list_id, single["name"], json.dumps(details))
+    task = clickup.get_or_create_task(task_list_id, single["name"], json.dumps(data))
+
+    data = dict()
+
+    if member := members.get(single["created_by_id"]):
+        data["creator"] = dict(id=member["user"]["id"])
+
+    if subscribers := ac_task["subscribers"]:
+        data["followers"] = dict(
+            add=[
+                members[sub]["user"]["id"] if members[sub] else None
+                for sub in subscribers
+            ]
+        )
+
+    return clickup.update_task(task["id"], data)
 
 
 def is_task_importable(ac_task: dict) -> bool:
