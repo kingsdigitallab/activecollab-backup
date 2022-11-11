@@ -7,6 +7,7 @@ from pprint import pprint
 from clickup import ClickUp
 from markdownify import markdownify
 
+
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
     print("Importing AC labels")
 
@@ -39,7 +40,9 @@ def get_members(clickup: ClickUp, path: str = "data/users.json") -> dict:
     return members
 
 
-def import_ac_attachments(click_up: ClickUp, spaces: dict, tasks: dict, path: str = "data") -> None:
+def import_ac_attachments(
+    click_up: ClickUp, spaces: dict, tasks: dict, path: str = "data"
+) -> None:
     print("Importing AC Attachments")
     projects_json = glob((os.path.join(path, "attachments", "*.json")))
     for project_json in projects_json:
@@ -47,25 +50,35 @@ def import_ac_attachments(click_up: ClickUp, spaces: dict, tasks: dict, path: st
             attachments = json.load(f)
 
             # Filter out google docs
-            attachments = [a for a in attachments if a["class"] != "GoogleDriveAttachment"]
+            attachments = [
+                a for a in attachments if a["class"] != "GoogleDriveAttachment"
+            ]
 
             for attachment in attachments:
 
                 a_id = attachment["id"]
                 a_name = attachment["name"]
-                
+
                 if "parent_type" in attachment:
-                    if attachment['parent_type'] == "Task" and tasks[attachment["parent_id"]] is not None:
+                    if (
+                        attachment["parent_type"] == "Task"
+                        and tasks[attachment["parent_id"]] is not None
+                    ):
                         # Attach to task
                         task = tasks[attachment["parent_id"]]["id"]
-                        file_path = os.path.join(os.path.splitext(os.path.abspath(project_json))[0], f"{a_id}__{a_name}")
+                        file_path = os.path.join(
+                            os.path.splitext(os.path.abspath(project_json))[0],
+                            f"{a_id}__{a_name}",
+                        )
 
-                        pprint(click_up.upload_attachment_to_task(task, a_name, file_path))
-                    elif attachment['parent_type'] == "Comment":
+                        pprint(
+                            click_up.upload_attachment_to_task(task, a_name, file_path)
+                        )
+                    elif attachment["parent_type"] == "Comment":
                         # Was attached to comment, attach to task
                         pass
 
-                    elif attachment['parent_type'] == "Note":
+                    elif attachment["parent_type"] == "Note":
                         # Was attached to a note, attach to document
                         pass
                     else:
@@ -74,6 +87,7 @@ def import_ac_attachments(click_up: ClickUp, spaces: dict, tasks: dict, path: st
                 else:
                     # Was attached to project, attach to default document.
                     pass
+
 
 def import_ac_projects(
     clickup: ClickUp, spaces: dict, members: dict, path: str = "data"
@@ -86,7 +100,6 @@ def import_ac_projects(
     folders = {}
     docs = {}
     pages = {}
-    statuses = {}
     tasks = {}
 
     for project in ac_projects:
