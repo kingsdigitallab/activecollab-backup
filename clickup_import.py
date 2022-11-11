@@ -199,6 +199,7 @@ def import_ac_task(
             ]
         )
 
+    pprint(task)
     task = clickup.update_task(task["id"], data)
 
     for subtask in ac_task["subtasks"]:
@@ -214,8 +215,6 @@ def import_ac_task(
         clickup.get_or_create_task(task_list_id, subtask["name"], json.dumps(data))
 
     for comment in ac_task["comments"]:
-        text = f"_Original comment by {comment['created_by_name']}_\n\n"
-        text = f"{text}comment['body_plain_text']"
         clickup.get_or_create_comment(task["id"], comment["body_plain_text"])
 
     return task
