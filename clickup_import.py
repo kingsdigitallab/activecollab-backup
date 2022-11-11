@@ -1,11 +1,11 @@
 import json
 import os
 from datetime import datetime
+from glob import glob
 from pprint import pprint
 
 from clickup import ClickUp
 from markdownify import markdownify
-
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
     print("Importing AC labels")
@@ -38,6 +38,42 @@ def get_members(clickup: ClickUp, path: str = "data/users.json") -> dict:
 
     return members
 
+
+def import_ac_attachments(click_up: ClickUp, spaces: dict, tasks: dict, path: str = "data") -> None:
+    print("Importing AC Attachments")
+    projects_json = glob((os.path.join(path, "attachments", "*.json")))
+    for project_json in projects_json:
+        with open(project_json) as f:
+            attachments = json.load(f)
+
+            # Filter out google docs
+            attachments = [a for a in attachments if a["class"] != "GoogleDriveAttachment"]
+
+            for attachment in attachments:
+
+                a_id = attachment["id"]
+                a_name = attachment["name"]
+                
+                if "parent_type" in attachment:
+                    if attachment['parent_type'] == "Task" and tasks[attachment["parent_id"]] is not None:
+                        # Attach to task
+                        task = tasks[attachment["parent_id"]]["id"]
+                        file_path = os.path.join(os.path.splitext(os.path.abspath(project_json))[0], f"{a_id}__{a_name}")
+
+                        pprint(click_up.upload_attachment_to_task(task, a_name, file_path))
+                    elif attachment['parent_type'] == "Comment":
+                        # Was attached to comment, attach to task
+                        pass
+
+                    elif attachment['parent_type'] == "Note":
+                        # Was attached to a note, attach to document
+                        pass
+                    else:
+                        # It was... somewhere?! Attach to default document. Probably a task that was not imported.
+                        pass
+                else:
+                    # Was attached to project, attach to default document.
+                    pass
 
 def import_ac_projects(
     clickup: ClickUp, spaces: dict, members: dict, path: str = "data"
@@ -93,6 +129,8 @@ def import_ac_projects(
             tasks[ac_task["single"]["id"]] = import_ac_task(
                 clickup, task_list["id"], ac_task, members
             )
+
+    return {}, tasks
 
 
 def getDate(timestamp: int) -> str:
@@ -218,5 +256,8 @@ if __name__ == "__main__":
     members = get_members(clickup)
     print()
 
-    projects = import_ac_projects(clickup, spaces, members)
+    projects, tasks = import_ac_projects(clickup, spaces, members)
+    print()
+
+    attachments = import_ac_attachments(clickup, spaces, tasks)
     print()

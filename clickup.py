@@ -1,6 +1,7 @@
 import json
 from functools import lru_cache
 
+
 import requests
 
 default_api_version = "v2"
@@ -54,6 +55,14 @@ class ClickUp:
         url = f"{self.get_api_url(version)}/{endpoint}"
         print(f"--- POST {url}")
         response = requests.post(url, headers=self.get_headers(version), json=payload)
+        return response.json()
+
+    def post_multipart(
+        self, endpoint: str, payload: dict = None, files: dict = None, version: str = default_api_version
+    ) -> dict:
+        url = f"{self.get_api_url(version)}/{endpoint}"
+        print(f"--- POST {url}")
+        response = requests.post(url, headers=self.get_headers(version), json=payload, files=files)
         return response.json()
 
     def put(
@@ -185,6 +194,19 @@ class ClickUp:
     @lru_cache
     def get_tasks(self, list_id: int) -> list:
         return self.get(f"list/{list_id}/task")["tasks"]
+
+    # No need to cache this!
+    def upload_attachment_to_task(self, task: int, name: str, file_path: str) -> dict:
+        with open(file_path, "rb") as file:
+            files = {
+                "attachment": (name, file)
+            }
+            payload = {
+                "filename": name
+            }
+            print(f"Uploading {name} to task {task}")
+            self.post_multipart(f"task/{task}/attachment", payload, files)
+
 
     # no need to cache
     def update_task(self, task: int, data: dict) -> dict:
