@@ -199,7 +199,7 @@ class ClickUp:
 
     @lru_cache
     def get_tasks(self, list_id: int) -> list:
-        return self.get(f"list/{list_id}/task")["tasks"]
+        return self.get(f"list/{list_id}/task?include_closed=true")["tasks"]
 
     # No need to cache this!
     def upload_attachment_to_task(self, task: int, name: str, file_path: str) -> dict:
