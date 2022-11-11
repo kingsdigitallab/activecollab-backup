@@ -143,7 +143,7 @@ def import_ac_projects(
                 clickup, task_list["id"], ac_task, members
             )
 
-    return {}, tasks
+    return folders, docs, pages, tasks
 
 
 def get_date(timestamp: int) -> str:
@@ -213,6 +213,11 @@ def import_ac_task(
 
         clickup.get_or_create_task(task_list_id, subtask["name"], json.dumps(data))
 
+    for comment in ac_task["comments"]:
+        text = f"_Original comment by {comment['created_by_name']}_\n\n"
+        text = f"{text}comment['body_plain_text']"
+        clickup.get_or_create_comment(task["id"], comment["body_plain_text"])
+
     return task
 
 
@@ -269,7 +274,7 @@ if __name__ == "__main__":
     members = get_members(clickup)
     print()
 
-    projects, tasks = import_ac_projects(clickup, spaces, members)
+    folders, docs, pages, tasks = import_ac_projects(clickup, spaces, members)
     print()
 
     attachments = import_ac_attachments(clickup, spaces, tasks)
