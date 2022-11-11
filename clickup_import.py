@@ -41,9 +41,10 @@ def get_members(clickup: ClickUp, path: str = "data/users.json") -> dict:
 
 
 def import_ac_attachments(
-    click_up: ClickUp, spaces: dict, tasks: dict, path: str = "data"
+    click_up: ClickUp, spaces: dict, tasks: dict, comment_map: dict, path: str = "data"
 ) -> None:
     print("Importing AC Attachments")
+
     projects_json = glob((os.path.join(path, "attachments", "*.json")))
     for project_json in projects_json:
         with open(project_json) as f:
@@ -71,9 +72,6 @@ def import_ac_attachments(
                             f"{a_id}__{a_name}",
                         )
 
-                        pprint(
-                            click_up.upload_attachment_to_task(task, a_name, file_path)
-                        )
                     elif attachment["parent_type"] == "Comment":
                         # Was attached to comment, attach to task
                         pass
@@ -101,6 +99,7 @@ def import_ac_projects(
     docs = {}
     pages = {}
     tasks = {}
+    comment_map = {}
 
     for project in ac_projects:
         project_path = os.path.join(path, "projects", str(project["id"]))
@@ -139,11 +138,14 @@ def import_ac_projects(
             with open(os.path.join(task_path, "tasks.json"), "r") as f:
                 ac_task = json.load(f)
 
-            tasks[ac_task["single"]["id"]] = import_ac_task(
+            tasks[ac_task["single"]["id"]], task_comment_map = import_ac_task(
                 clickup, task_list["id"], ac_task, members
             )
 
-    return folders, docs, pages, tasks
+            if task_comment_map is not None:
+                comment_map = comment_map | task_comment_map
+
+    return folders, docs, pages, tasks, comment_map
 
 
 def get_date(timestamp: int) -> str:
@@ -158,8 +160,9 @@ def import_ac_note(clickup: ClickUp, doc: str, name: str, body: str) -> dict:
 def import_ac_task(
     clickup: ClickUp, task_list_id: int, ac_task: dict, members: dict
 ) -> dict:
+    task_comment_map = {}
     if not is_task_importable(ac_task):
-        return None
+        return None, None
 
     single = ac_task["single"]
     status = get_task_status(ac_task)
@@ -199,7 +202,7 @@ def import_ac_task(
             ]
         )
 
-    pprint(task)
+    
     task = clickup.update_task(task["id"], data)
 
     for subtask in ac_task["subtasks"]:
@@ -215,9 +218,10 @@ def import_ac_task(
         clickup.get_or_create_task(task_list_id, subtask["name"], json.dumps(data))
 
     for comment in ac_task["comments"]:
+        task_comment_map[comment["id"]] = comment["parent_id"]
         clickup.get_or_create_comment(task["id"], comment["body_plain_text"])
 
-    return task
+    return task, task_comment_map
 
 
 def is_task_importable(ac_task: dict) -> bool:
@@ -273,8 +277,8 @@ if __name__ == "__main__":
     members = get_members(clickup)
     print()
 
-    folders, docs, pages, tasks = import_ac_projects(clickup, spaces, members)
+    folders, docs, pages, tasks, comment_map = import_ac_projects(clickup, spaces, members)
     print()
 
-    attachments = import_ac_attachments(clickup, spaces, tasks)
+    attachments = import_ac_attachments(clickup, spaces, tasks, comment_map)
     print()
