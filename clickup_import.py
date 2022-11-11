@@ -111,7 +111,7 @@ def import_ac_projects(
 
         for note in project_notes:
             body = f"Originally created by {note['created_by_name']}"
-            body = f"{body} on {getDate(note['created_on'])}"
+            body = f"{body} on {get_date(note['created_on'])}"
             body = f"{body}\n\n---\n\n{note['body_plain_text']}"
 
             page = import_ac_note(clickup, doc["id"], note["name"], body)
@@ -133,7 +133,7 @@ def import_ac_projects(
     return {}, tasks
 
 
-def getDate(timestamp: int) -> str:
+def get_date(timestamp: int) -> str:
     dt = datetime.fromtimestamp(timestamp)
     return dt.strftime("%Y-%m-%d, %H:%M:%S")
 
