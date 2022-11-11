@@ -4,6 +4,7 @@ from datetime import datetime
 from pprint import pprint
 
 from clickup import ClickUp
+from markdownify import markdownify
 
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
@@ -42,8 +43,6 @@ def import_ac_projects(
     clickup: ClickUp, spaces: dict, members: dict, path: str = "data"
 ) -> dict:
     print("Importing AC projects")
-
-    pprint(members)
 
     with open(os.path.join(path, "projects.json"), "r") as f:
         ac_projects = json.load(f)
@@ -115,13 +114,13 @@ def import_ac_task(
     status = get_task_status(ac_task)
 
     data = dict(
-        description=single["body"],
+        description=html_to_markdown(single["body"]),
         assignees=[],
         tags=[],
         status=status,
         priority=1 if single["is_important"] else None,
         due_date_time=False,
-        time_estimate=single["estimate"] * 60 * 60,
+        time_estimate=single["estimate"],
         start_date_time=False,
     )
 
@@ -149,7 +148,21 @@ def import_ac_task(
             ]
         )
 
-    return clickup.update_task(task["id"], data)
+    task = clickup.update_task(task["id"], data)
+
+    for subtask in ac_task["subtasks"]:
+        data = dict(
+            parent=task["id"],
+            name=subtask["name"],
+            status="Closed" if subtask["is_completed"] else status,
+        )
+
+        if member := members.get(subtask["assignee_id"]):
+            data["assignees"] = [member["user"]["id"]]
+
+        clickup.get_or_create_task(task_list_id, subtask["name"], json.dumps(data))
+
+    return task
 
 
 def is_task_importable(ac_task: dict) -> bool:
@@ -185,6 +198,10 @@ def get_task_status(ac_task: dict) -> str:
 
     if name == "project size":
         return "Open"
+
+
+def html_to_markdown(html: str) -> str:
+    return markdownify(html, heading_style="ATX")
 
 
 if __name__ == "__main__":
