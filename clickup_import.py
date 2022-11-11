@@ -71,10 +71,16 @@ def import_ac_attachments(
                             os.path.splitext(os.path.abspath(project_json))[0],
                             f"{a_id}__{a_name}",
                         )
+                        click_up.upload_attachment_to_task(task, a_name, file_path)
 
                     elif attachment["parent_type"] == "Comment":
                         # Was attached to comment, attach to task
-                        pass
+                        task = tasks[comment_map[attachment["parent_id"]]]["id"]
+                        file_path = os.path.join(
+                            os.path.splitext(os.path.abspath(project_json))[0],
+                            f"{a_id}__{a_name}",
+                        )
+                        click_up.upload_attachment_to_task(task, a_name, file_path)
 
                     elif attachment["parent_type"] == "Note":
                         # Was attached to a note, attach to document
