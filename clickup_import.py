@@ -151,11 +151,23 @@ def import_ac_projects(
             if task_comment_map is not None:
                 comment_map = comment_map | task_comment_map
 
+        for pt in project_tasks["completed_task_ids"]:
+            task_path = os.path.join(project_path, "tasks/archived", str(pt))
+            with open(os.path.join(task_path, "tasks.json"), "r") as f:
+                ac_task = json.load(f)
+
+            tasks[ac_task["single"]["id"]], task_comment_map = import_ac_task(
+                clickup, task_list["id"], ac_task, members
+            )
+
+            if task_comment_map is not None:
+                comment_map = comment_map | task_comment_map
+
         # import time records
         with open(os.path.join(project_path, "time-records.json")) as f:
-            records = json.load(f)["time_records"]
+            records = json.load(f)
 
-        for record in records:
+        for record in records["time_records"]:
             parent_id = record["parent_id"]
             if parent_id == project["id"]:
                 parent = folder
