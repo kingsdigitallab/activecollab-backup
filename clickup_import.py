@@ -4,8 +4,9 @@ from datetime import datetime
 from glob import glob
 from pprint import pprint
 
-from clickup import ClickUp
 from markdownify import markdownify
+
+from clickup import ClickUp
 
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
@@ -95,7 +96,7 @@ def import_ac_attachments(
 
 def import_ac_projects(
     clickup: ClickUp, spaces: dict, members: dict, path: str = "data"
-) -> dict:
+) -> tuple:
     print("Importing AC projects")
 
     with open(os.path.join(path, "projects.json"), "r") as f:
@@ -174,6 +175,11 @@ def import_ac_projects(
             else:
                 parent = tasks[parent_id]
 
+            if not parent:
+                break
+
+            data = dict()
+
     return folders, docs, pages, tasks, comment_map
 
 
@@ -188,7 +194,7 @@ def import_ac_note(clickup: ClickUp, doc: str, name: str, body: str) -> dict:
 
 def import_ac_task(
     clickup: ClickUp, task_list_id: int, ac_task: dict, members: dict
-) -> dict:
+) -> tuple:
     task_comment_map = {}
     if not is_task_importable(ac_task):
         return None, None
@@ -203,7 +209,7 @@ def import_ac_task(
         status=status,
         priority=1 if single["is_important"] else None,
         due_date_time=False,
-        time_estimate=single["estimate"],
+        time_estimate=single["estimate"] * 60 * 60 * 1000,
         start_date_time=False,
     )
 
