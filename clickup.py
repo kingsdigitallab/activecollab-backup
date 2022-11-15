@@ -1,7 +1,6 @@
 import json
 from functools import lru_cache
 
-
 import requests
 
 default_api_version = "v2"
@@ -21,7 +20,7 @@ class ClickUp:
         self.api_tokens["v2"] = api_token_v2
 
     def get(
-        self, endpoint: str, params: dict = None, version: str = default_api_version
+        self, endpoint: str, params: dict = {}, version: str = default_api_version
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
         headers = self.get_headers(version)
@@ -32,12 +31,12 @@ class ClickUp:
         return response.json()
 
     def get_api_url(self, version: str = default_api_version) -> str:
-        return self.api_urls.get(version)
+        return self.api_urls.get(version, self.api_urls["v2"])
 
-    def get_headers(self, version: str = default_api_version) -> dict:
+    def get_headers(self, version: str = default_api_version, token: str = "") -> dict:
         if version == default_api_version:
             return dict(
-                Authorization=self.get_api_token(version),
+                Authorization=self.get_api_token(version, token),
                 Content_Type="application/json",
             )
 
@@ -46,22 +45,31 @@ class ClickUp:
             Content_Type="application/json",
         )
 
-    def get_api_token(self, version: str = default_api_version) -> str:
-        return self.api_tokens.get(version)
+    def get_api_token(self, version: str = default_api_version, token: str = "") -> str:
+        if token:
+            return token
+
+        return self.api_tokens.get(version, self.api_tokens["v2"])
 
     def post(
-        self, endpoint: str, payload: dict = None, version: str = default_api_version
+        self,
+        endpoint: str,
+        payload: dict = {},
+        version: str = default_api_version,
+        token: str = "",
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
         print(f"--- POST {url}")
-        response = requests.post(url, headers=self.get_headers(version), json=payload)
+        response = requests.post(
+            url, headers=self.get_headers(version, token), json=payload
+        )
         return response.json()
 
     def post_multipart(
         self,
         endpoint: str,
-        payload: dict = None,
-        files: dict = None,
+        payload: dict = {},
+        files: dict = {},
         version: str = default_api_version,
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
@@ -72,11 +80,17 @@ class ClickUp:
         return response.json()
 
     def put(
-        self, endpoint: str, payload: dict = None, version: str = default_api_version
+        self,
+        endpoint: str,
+        payload: dict = {},
+        version: str = default_api_version,
+        token: str = "",
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
         print(f"--- PUT {url}")
-        response = requests.put(url, headers=self.get_headers(version), json=payload)
+        response = requests.put(
+            url, headers=self.get_headers(version, token), json=payload
+        )
         return response.json()
 
     @lru_cache
@@ -91,7 +105,7 @@ class ClickUp:
         if found:
             return found[0]
 
-        return None
+        return {}
 
     @lru_cache
     def get_or_create_space(self, name: str) -> dict:
@@ -186,7 +200,9 @@ class ClickUp:
         return self.get(f"folder/{folder}/list")["lists"]
 
     @lru_cache
-    def get_or_create_task(self, list_id: int, name: str, data: str) -> dict:
+    def get_or_create_task(
+        self, list_id: int, name: str, data: str, token: str = ""
+    ) -> dict:
         if tasks := self.get_tasks(list_id):
             task = list(filter(lambda x: x["name"] == name, tasks))
             if task:
@@ -195,14 +211,14 @@ class ClickUp:
         payload = json.loads(data)
         payload["name"] = name
 
-        return self.post(f"list/{list_id}/task", payload)
+        return self.post(f"list/{list_id}/task", payload=payload, token=token)
 
     @lru_cache
     def get_tasks(self, list_id: int) -> list:
         return self.get(f"list/{list_id}/task?include_closed=true")["tasks"]
 
     # No need to cache this!
-    def upload_attachment_to_task(self, task: int, name: str, file_path: str) -> dict:
+    def upload_attachment_to_task(self, task: int, name: str, file_path: str):
         with open(file_path, "rb") as file:
             files = {"attachment": (name, file)}
             payload = {"filename": name}
@@ -214,14 +230,16 @@ class ClickUp:
         return self.put(f"task/{task}", payload=data)
 
     @lru_cache
-    def get_or_create_comment(self, task: int, text: str) -> dict:
+    def get_or_create_comment(self, task: int, text: str, token: str = "") -> dict:
         if comments := self.get_comments(task):
             if comment := list(filter(lambda x: x["comment_text"] == text, comments)):
                 return comment[0]
 
         payload = dict(comment_text=text)
-        return self.post(f"task/{task}/comment", payload=payload)
+        return self.post(f"task/{task}/comment", payload=payload, token=token)
 
     @lru_cache
     def get_comments(self, task: int) -> list:
         return self.get(f"task/{task}/comment")["comments"]
+
+    # def create_time_entry(self, parent: int, )

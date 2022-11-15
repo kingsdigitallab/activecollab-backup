@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from datetime import datetime
 from glob import glob
 from pprint import pprint
@@ -26,7 +27,9 @@ def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
     return spaces
 
 
-def get_members(clickup: ClickUp, path: str = "data/users.json") -> dict:
+def get_members(
+    clickup: ClickUp, path: str = "data/users.json", tokens: dict = {}
+) -> dict:
     print("Get members")
 
     with open(path, "r") as f:
@@ -35,8 +38,10 @@ def get_members(clickup: ClickUp, path: str = "data/users.json") -> dict:
     members = {}
 
     for user in ac_users:
+        id = user["id"]
         if member := clickup.get_member(user["email"]):
-            members[user["id"]] = member
+            members[id] = member
+            members[id]["token"] = tokens.get(user["email"], tokens.get("default"))
 
     return members
 
@@ -115,13 +120,16 @@ def import_ac_projects(
 
         folder = clickup.get_or_create_folder(space, project["name"])
         folders[project["id"]] = folder
-        print(f"- {folder['name']}")
+        folder_name = folder["name"]
+        print(f"- {folder_name}")
+
+        list_name = re.split(r"[\[\(:;]", folder_name)[0].strip()
 
         doc = clickup.get_or_create_doc(folder["id"], "Documents")
         page = import_ac_note(clickup, doc["id"], "About", project["body"])
         docs[project["id"]] = doc
 
-        task_list = clickup.get_or_create_list(folder["id"], "Tasks")
+        task_list = clickup.get_or_create_list(folder["id"], list_name)
 
         # Import notes/documents!
         # Important fields are: name, body_plain_text, created_by_id, created_by_name
@@ -196,16 +204,20 @@ def import_ac_task(
     clickup: ClickUp, task_list_id: int, ac_task: dict, members: dict
 ) -> tuple:
     task_comment_map = {}
+
     if not is_task_importable(ac_task):
         return None, None
 
     single = ac_task["single"]
+    name = single["name"]
+
+    tags = get_task_tags(name)
     status = get_task_status(ac_task)
 
     data = dict(
         description=html_to_markdown(single["body"]),
         assignees=[],
-        tags=[],
+        tags=tags,
         status=status,
         priority=1 if single["is_important"] else None,
         due_date_time=False,
@@ -222,12 +234,13 @@ def import_ac_task(
     if start_date := single["start_on"]:
         data["start_date"] = start_date * 1000
 
-    task = clickup.get_or_create_task(task_list_id, single["name"], json.dumps(data))
+    token = None
+    if member := members.get(single["created_by_id"]):
+        token = member["token"]
+
+    task = clickup.get_or_create_task(task_list_id, name, json.dumps(data), token)
 
     data = dict()
-
-    if member := members.get(single["created_by_id"]):
-        data["creator"] = dict(id=member["user"]["id"])
 
     if subscribers := ac_task["subscribers"]:
         data["followers"] = dict(
@@ -252,8 +265,12 @@ def import_ac_task(
         clickup.get_or_create_task(task_list_id, subtask["name"], json.dumps(data))
 
     for comment in ac_task["comments"]:
+        token = None
+        if member := members.get(comment["created_by_id"]):
+            token = member["token"]
+
         task_comment_map[comment["id"]] = comment["parent_id"]
-        clickup.get_or_create_comment(task["id"], comment["body_plain_text"])
+        clickup.get_or_create_comment(task["id"], comment["body_plain_text"], token)
 
     return task, task_comment_map
 
@@ -274,13 +291,22 @@ def is_task_importable(ac_task: dict) -> bool:
     return False
 
 
+def get_task_tags(name: str) -> list[str]:
+    name = name.lower()
+
+    if name == "check project status":
+        return ["status"]
+
+    return []
+
+
 def get_task_status(ac_task: dict) -> str:
     if ac_task["single"]["is_completed"]:
         return "Closed"
 
     name = ac_task["task_list"]["name"].lower()
 
-    if name == "inbox" or name == "to do":
+    if name in ["inbox", "to do", "project size"]:
         return "Open"
 
     if name == "in progress":
@@ -289,8 +315,7 @@ def get_task_status(ac_task: dict) -> str:
     if name == "done":
         return "Closed"
 
-    if name == "project size":
-        return "Open"
+    return "Open"
 
 
 def html_to_markdown(html: str) -> str:
@@ -302,13 +327,13 @@ if __name__ == "__main__":
         secrets = json.load(f)
 
     clickup = ClickUp(
-        secrets["team_id"], secrets["api_token_v1"], secrets["api_token_v2"]
+        secrets["team_id"], secrets["api_token_v1"], secrets["api_tokens_v2"]["default"]
     )
 
     spaces = import_ac_labels(clickup)
     print()
 
-    members = get_members(clickup)
+    members = get_members(clickup, tokens=secrets["api_tokens_v2"])
     print()
 
     folders, docs, pages, tasks, comment_map = import_ac_projects(
@@ -316,5 +341,5 @@ if __name__ == "__main__":
     )
     print()
 
-    attachments = import_ac_attachments(clickup, spaces, tasks, comment_map)
-    print()
+    # attachments = import_ac_attachments(clickup, spaces, tasks, comment_map)
+    # print()
