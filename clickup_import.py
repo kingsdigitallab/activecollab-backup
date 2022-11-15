@@ -107,6 +107,9 @@ def import_ac_projects(
     with open(os.path.join(path, "projects.json"), "r") as f:
         ac_projects = json.load(f)
 
+    with open(os.path.join(path, "companies.json"), "r") as f:
+        companies = json.load(f)
+
     folders = {}
     docs = {}
     pages = {}
@@ -130,6 +133,7 @@ def import_ac_projects(
         docs[project["id"]] = doc
 
         task_list = clickup.get_or_create_list(folder["id"], list_name)
+        import_project_details(clickup, task_list["id"], project, companies)
 
         # Import notes/documents!
         # Important fields are: name, body_plain_text, created_by_id, created_by_name
@@ -189,6 +193,62 @@ def import_ac_projects(
             data = dict()
 
     return folders, docs, pages, tasks, comment_map
+
+
+def import_project_details(
+    clickup: ClickUp, task_list_id: int, project: dict, companies: list
+) -> dict:
+    if companies := list(filter(lambda x: x["id"] == project["company_id"], companies)):
+        print("- Import project details")
+        organisation = "King's College, London"
+        faculty, department = companies[0]["name"].split(":")
+        faculty = faculty.strip()
+        department = department.strip()
+
+        if faculty == "External":
+            organisation = None
+        if faculty == "KCL":
+            faculty = None
+        if faculty == "King's":
+            faculty = department
+            department = None
+
+        custom_fields = []
+        fields = clickup.get_custom_fields(task_list_id)
+        faculty_field = list(filter(lambda x: x["name"] == "Faculty", fields))[0]
+        faculty_options = list(
+            filter(
+                lambda x: x["name"] == faculty, faculty_field["type_config"]["options"]
+            )
+        )
+
+        custom_fields = [
+            dict(
+                id="4c0f85e5-e82d-4980-b511-de41cefd6163",
+                value=list(map(lambda x: x["id"], faculty_options))[0],
+            ),
+            # dict(id="342f55be-f7b0-4508-8242-2d573696e299", value=[department]),
+            # dict(id="d98a262e-632d-4b9f-8776-520fbe5b29ee", value=[organisation]),
+        ]
+        data = dict(
+            description="",
+            assignees=[],
+            tags=["project details"],
+            status="Open",
+            priority=None,
+            due_date_time=False,
+            time_estimate=None,
+            start_date_time=False,
+            custom_fields=custom_fields,
+        )
+
+        pprint(data)
+        task = clickup.get_or_create_task(
+            task_list_id, "Project details", json.dumps(data)
+        )
+        pprint(task)
+
+    return {}
 
 
 def get_date(timestamp: int) -> str:

@@ -242,4 +242,6 @@ class ClickUp:
     def get_comments(self, task: int) -> list:
         return self.get(f"task/{task}/comment")["comments"]
 
-    # def create_time_entry(self, parent: int, )
+    @lru_cache
+    def get_custom_fields(self, list_id: int) -> list:
+        return self.get(f"list/{list_id}/field")["fields"]
