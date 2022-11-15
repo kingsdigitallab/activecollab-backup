@@ -341,5 +341,5 @@ if __name__ == "__main__":
     )
     print()
 
-    # attachments = import_ac_attachments(clickup, spaces, tasks, comment_map)
-    # print()
+    attachments = import_ac_attachments(clickup, spaces, tasks, comment_map)
+    print()
