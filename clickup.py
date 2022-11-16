@@ -245,3 +245,6 @@ class ClickUp:
     @lru_cache
     def get_custom_fields(self, list_id: int) -> list:
         return self.get(f"list/{list_id}/field")["fields"]
+
+    def set_custom_field(self, task: int, field: str, value) -> dict:
+        return self.post(f"task/{task}/field/{field}", payload=dict(value=value))

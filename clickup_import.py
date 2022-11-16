@@ -198,57 +198,62 @@ def import_ac_projects(
 def import_project_details(
     clickup: ClickUp, task_list_id: int, project: dict, companies: list
 ) -> dict:
-    if companies := list(filter(lambda x: x["id"] == project["company_id"], companies)):
-        print("- Import project details")
-        organisation = "King's College, London"
-        faculty, department = companies[0]["name"].split(":")
-        faculty = faculty.strip()
-        department = department.strip()
+    if not (
+        companies := list(filter(lambda x: x["id"] == project["company_id"], companies))
+    ):
+        return {}
 
-        if faculty == "External":
-            organisation = None
-        if faculty == "KCL":
-            faculty = None
-        if faculty == "King's":
-            faculty = department
-            department = None
+    print("- Import project details")
+    details = {"Partner organisation(s)": "King's College, London"}
+    faculty, department = companies[0]["name"].split(":")
+    details["Faculty"] = faculty.strip()
+    details["Department(s)"] = department.strip()
 
-        custom_fields = []
-        fields = clickup.get_custom_fields(task_list_id)
-        faculty_field = list(filter(lambda x: x["name"] == "Faculty", fields))[0]
-        faculty_options = list(
-            filter(
-                lambda x: x["name"] == faculty, faculty_field["type_config"]["options"]
-            )
-        )
+    if faculty == "External":
+        details["Partner organisation(s)"] = ""
+    if faculty == "KCL":
+        details["Faculty"] = ""
+    if faculty == "King's":
+        details["Faculty"] = details["Department(s)"]
+        details["Department(s)"] = ""
 
-        custom_fields = [
-            dict(
-                id="4c0f85e5-e82d-4980-b511-de41cefd6163",
-                value=list(map(lambda x: x["id"], faculty_options))[0],
-            ),
-            # dict(id="342f55be-f7b0-4508-8242-2d573696e299", value=[department]),
-            # dict(id="d98a262e-632d-4b9f-8776-520fbe5b29ee", value=[organisation]),
-        ]
-        data = dict(
-            description="",
-            assignees=[],
-            tags=["project details"],
-            status="Open",
-            priority=None,
-            due_date_time=False,
-            time_estimate=None,
-            start_date_time=False,
-            custom_fields=custom_fields,
-        )
+    custom_fields = [
+        dict(id="4c0f85e5-e82d-4980-b511-de41cefd6163", value=0),
+        dict(id="342f55be-f7b0-4508-8242-2d573696e299", value=[]),
+        dict(id="d98a262e-632d-4b9f-8776-520fbe5b29ee", value=[]),
+    ]
 
-        pprint(data)
-        task = clickup.get_or_create_task(
-            task_list_id, "Project details", json.dumps(data)
-        )
-        pprint(task)
+    data = dict(
+        description="",
+        assignees=[],
+        tags=["_meta", "details"],
+        status="Open",
+        priority=None,
+        due_date_time=False,
+        time_estimate=None,
+        start_date_time=False,
+        custom_fields=custom_fields,
+    )
 
-    return {}
+    task = clickup.get_or_create_task(task_list_id, "Project details", json.dumps(data))
+
+    fields = clickup.get_custom_fields(task_list_id)
+    if fields and len(fields) > 0:
+        for key, value in details.items():
+            field = list(filter(lambda x: x["name"] == key, fields))[0]
+            if field_options := list(
+                filter(
+                    lambda x: x.get("name") == value or x.get("label") == value,
+                    field["type_config"]["options"],
+                )
+            ):
+                field_value = list(map(lambda x: x["id"], field_options))
+                if key == "Faculty":
+                    field_value = field_value[0]
+
+                clickup.set_custom_field(task["id"], field["id"], field_value)
+
+    return task
 
 
 def get_date(timestamp: int) -> str:
@@ -355,7 +360,7 @@ def get_task_tags(name: str) -> list[str]:
     name = name.lower()
 
     if name == "check project status":
-        return ["status"]
+        return ["_meta", "status"]
 
     return []
 
