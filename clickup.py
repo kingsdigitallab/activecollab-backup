@@ -1,4 +1,5 @@
 import json
+from pprint import pprint
 from functools import lru_cache
 
 import requests
@@ -15,8 +16,10 @@ class ClickUp:
         self.api_tokens = {}
 
         self.api_urls["v1"] = f"https://app.clickup.com/docs/v1"
+        self.api_urls["v1_attach"] = f"https://attch.clickup.com/v1"
         self.api_urls["v2"] = f"https://api.clickup.com/api/v2"
         self.api_tokens["v1"] = api_token_v1
+        self.api_tokens["v1_attach"] = api_token_v1
         self.api_tokens["v2"] = api_token_v2
 
     def get(
@@ -38,6 +41,7 @@ class ClickUp:
             return dict(
                 Authorization=self.get_api_token(version, token),
                 Content_Type="application/json",
+               
             )
 
         return dict(
@@ -75,8 +79,13 @@ class ClickUp:
         url = f"{self.get_api_url(version)}/{endpoint}"
         print(f"--- POST {url}")
         response = requests.post(
-            url, headers=self.get_headers(version), json=payload, files=files
+            url, headers=self.get_headers(version), data=payload, files=files
         )
+        pprint(response.request.url)
+        pprint(response.request.headers)
+        pprint(response.request.body)
+        
+
         return response.json()
 
     def put(
@@ -218,12 +227,28 @@ class ClickUp:
         return self.get(f"list/{list_id}/task?include_closed=true")["tasks"]
 
     # No need to cache this!
+    def upload_attachment_to_document(self, doc: dict, page: dict, name: str, file_path: str):
+        doc_id = doc["id"]
+        page_id =page["id"]
+        with open(file_path, "rb") as file:
+            files = {
+                "attachment": (name, file),
+            }
+            payload = {"parent": doc_id}
+            print(f"Uploading {name} to document {doc_id}")
+
+            uploaded_file = self.post_multipart(f"attachment", payload, files, version="v1_attach")
+
+            pprint(uploaded_file)
+            return 
+
+    # No need to cache this!
     def upload_attachment_to_task(self, task: int, name: str, file_path: str):
         with open(file_path, "rb") as file:
             files = {"attachment": (name, file)}
             payload = {"filename": name}
             print(f"Uploading {name} to task {task}")
-            self.post_multipart(f"task/{task}/attachment", payload, files)
+            return self.post_multipart(f"task/{task}/attachment", payload, files)
 
     # no need to cache
     def update_task(self, task: int, data: dict) -> dict:

@@ -47,7 +47,7 @@ def get_members(
 
 
 def import_ac_attachments(
-    click_up: ClickUp, spaces: dict, tasks: dict, comment_map: dict, path: str = "data"
+    click_up: ClickUp, spaces: dict, tasks: dict, comment_map: dict, folders:dict, path: str = "data"
 ) -> None:
     print("Importing AC Attachments")
 
@@ -65,6 +65,10 @@ def import_ac_attachments(
 
                 a_id = attachment["id"]
                 a_name = attachment["name"]
+                file_path = os.path.join(
+                            os.path.splitext(os.path.abspath(project_json))[0],
+                            f"{a_id}__{a_name}",
+                        )
 
                 if "parent_type" in attachment:
                     if (
@@ -73,19 +77,11 @@ def import_ac_attachments(
                     ):
                         # Attach to task
                         task = tasks[attachment["parent_id"]]["id"]
-                        file_path = os.path.join(
-                            os.path.splitext(os.path.abspath(project_json))[0],
-                            f"{a_id}__{a_name}",
-                        )
                         click_up.upload_attachment_to_task(task, a_name, file_path)
 
                     elif attachment["parent_type"] == "Comment":
                         # Was attached to comment, attach to task
                         task = tasks[comment_map[attachment["parent_id"]]]["id"]
-                        file_path = os.path.join(
-                            os.path.splitext(os.path.abspath(project_json))[0],
-                            f"{a_id}__{a_name}",
-                        )
                         click_up.upload_attachment_to_task(task, a_name, file_path)
 
                     elif attachment["parent_type"] == "Note":
@@ -96,8 +92,9 @@ def import_ac_attachments(
                         pass
                 else:
                     # Was attached to project, attach to default document.
-                    pass
-
+                    doc = clickup.get_or_create_doc(folders[attachment["project_id"]]["id"], "Documents")
+                    page = import_ac_note(clickup, doc["id"], "AC Attachments", "Attachments from ActiveCollab")
+                    click_up.upload_attachment_to_document(doc, page, a_name, file_path)
 
 def import_ac_projects(
     clickup: ClickUp, spaces: dict, members: dict, path: str = "data"
@@ -406,5 +403,5 @@ if __name__ == "__main__":
     )
     print()
 
-    attachments = import_ac_attachments(clickup, spaces, tasks, comment_map)
+    attachments = import_ac_attachments(clickup, spaces, tasks, comment_map, folders)
     print()
