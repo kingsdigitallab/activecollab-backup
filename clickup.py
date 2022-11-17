@@ -1,6 +1,6 @@
 import json
-from pprint import pprint
 from functools import lru_cache
+from pprint import pprint
 
 import requests
 
@@ -41,7 +41,6 @@ class ClickUp:
             return dict(
                 Authorization=self.get_api_token(version, token),
                 Content_Type="application/json",
-               
             )
 
         return dict(
@@ -84,7 +83,6 @@ class ClickUp:
         pprint(response.request.url)
         pprint(response.request.headers)
         pprint(response.request.body)
-        
 
         return response.json()
 
@@ -165,18 +163,20 @@ class ClickUp:
         return self.get(f"space/{space}/folder")["folders"]
 
     @lru_cache
-    def get_or_create_doc(self, folder: int, name: str) -> dict:
-        if docs := self.get_folder_views(folder):
+    def get_or_create_doc(
+        self, parent_id: int, name: str, level: str = "folder"
+    ) -> dict:
+        if docs := self.get_views(level, parent_id):
             doc = list(filter(lambda x: x["name"] == name and x["type"] == "doc", docs))
             if doc:
                 return doc[0]
 
-        payload = dict(name=name, type="doc", parent=dict(id=folder, type=5))
-        return self.post(f"folder/{folder}/view", payload)["view"]
+        payload = dict(name=name, type="doc", parent=dict(id=parent_id, type=5))
+        return self.post(f"list/{parent_id}/view", payload)["view"]
 
     @lru_cache
-    def get_folder_views(self, folder: int) -> list:
-        return self.get(f"folder/{folder}/view")["views"]
+    def get_views(self, level: str, parent_id: int) -> list:
+        return self.get(f"{level}/{parent_id}/view")["views"]
 
     # Document page maps to a note in AC
     @lru_cache
@@ -227,9 +227,11 @@ class ClickUp:
         return self.get(f"list/{list_id}/task?include_closed=true")["tasks"]
 
     # No need to cache this!
-    def upload_attachment_to_document(self, doc: dict, page: dict, name: str, file_path: str):
+    def upload_attachment_to_document(
+        self, doc: dict, page: dict, name: str, file_path: str
+    ):
         doc_id = doc["id"]
-        page_id =page["id"]
+        page_id = page["id"]
         with open(file_path, "rb") as file:
             files = {
                 "attachment": (name, file),
@@ -237,10 +239,12 @@ class ClickUp:
             payload = {"parent": doc_id}
             print(f"Uploading {name} to document {doc_id}")
 
-            uploaded_file = self.post_multipart(f"attachment", payload, files, version="v1_attach")
+            uploaded_file = self.post_multipart(
+                f"attachment", payload, files, version="v1_attach"
+            )
 
             pprint(uploaded_file)
-            return 
+            return
 
     # No need to cache this!
     def upload_attachment_to_task(self, task: int, name: str, file_path: str):

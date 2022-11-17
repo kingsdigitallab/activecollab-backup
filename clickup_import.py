@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from glob import glob
 from pprint import pprint
+from typing import Optional
 
 from markdownify import markdownify
 
@@ -47,7 +48,12 @@ def get_members(
 
 
 def import_ac_attachments(
-    click_up: ClickUp, spaces: dict, tasks: dict, comment_map: dict, folders:dict, path: str = "data"
+    click_up: ClickUp,
+    spaces: dict,
+    tasks: dict,
+    comment_map: dict,
+    folders: dict,
+    path: str = "data",
 ) -> None:
     print("Importing AC Attachments")
 
@@ -66,9 +72,9 @@ def import_ac_attachments(
                 a_id = attachment["id"]
                 a_name = attachment["name"]
                 file_path = os.path.join(
-                            os.path.splitext(os.path.abspath(project_json))[0],
-                            f"{a_id}__{a_name}",
-                        )
+                    os.path.splitext(os.path.abspath(project_json))[0],
+                    f"{a_id}__{a_name}",
+                )
 
                 if "parent_type" in attachment:
                     if (
@@ -92,9 +98,17 @@ def import_ac_attachments(
                         pass
                 else:
                     # Was attached to project, attach to default document.
-                    doc = clickup.get_or_create_doc(folders[attachment["project_id"]]["id"], "Documents")
-                    page = import_ac_note(clickup, doc["id"], "AC Attachments", "Attachments from ActiveCollab")
+                    doc = clickup.get_or_create_doc(
+                        folders[attachment["project_id"]]["id"], "Documents"
+                    )
+                    page = import_ac_note(
+                        clickup,
+                        doc["id"],
+                        "AC Attachments",
+                        "Attachments from ActiveCollab",
+                    )
                     click_up.upload_attachment_to_document(doc, page, a_name, file_path)
+
 
 def import_ac_projects(
     clickup: ClickUp, spaces: dict, members: dict, path: str = "data"
@@ -123,14 +137,12 @@ def import_ac_projects(
         folder_name = folder["name"]
         print(f"- {folder_name}")
 
-        list_name = re.split(r"[\[\(:;]", folder_name)[0].strip()
+        task_list = clickup.get_or_create_list(folder["id"], "_Metadata")
+        import_project_details(clickup, task_list["id"], project, companies)
 
-        doc = clickup.get_or_create_doc(folder["id"], "Documents")
+        doc = clickup.get_or_create_doc(task_list["id"], "Documents", "list")
         page = import_ac_note(clickup, doc["id"], "About", project["body"])
         docs[project["id"]] = doc
-
-        task_list = clickup.get_or_create_list(folder["id"], list_name)
-        import_project_details(clickup, task_list["id"], project, companies)
 
         # Import notes/documents!
         # Important fields are: name, body_plain_text, created_by_id, created_by_name
@@ -146,6 +158,9 @@ def import_ac_projects(
             pages[note["id"]] = page
 
         # import tasks
+        list_name = re.split(r"[\[\(:;]", folder_name)[0].strip()
+        task_list = clickup.get_or_create_list(folder["id"], list_name)
+
         with open(os.path.join(project_path, "tasks.json")) as f:
             project_tasks = json.load(f)
 
@@ -173,7 +188,7 @@ def import_ac_projects(
             if task_comment_map is not None:
                 comment_map = comment_map | task_comment_map
 
-        # import time records
+        # TODO: import time records
         with open(os.path.join(project_path, "time-records.json")) as f:
             records = json.load(f)
 
@@ -186,8 +201,6 @@ def import_ac_projects(
 
             if not parent:
                 break
-
-            data = dict()
 
     return folders, docs, pages, tasks, comment_map
 
@@ -287,7 +300,7 @@ def import_ac_task(
         start_date_time=False,
     )
 
-    if member := members.get(single["assignee_id"]):
+    if member := get_assignee(members, single):
         data["assignees"] = [member["user"]["id"]]
 
     if due_date := single["due_on"]:
@@ -321,7 +334,7 @@ def import_ac_task(
             status="Closed" if subtask["is_completed"] else status,
         )
 
-        if member := members.get(subtask["assignee_id"]):
+        if member := get_assignee(members, subtask):
             data["assignees"] = [member["user"]["id"]]
 
         clickup.get_or_create_task(task_list_id, subtask["name"], json.dumps(data))
@@ -378,6 +391,13 @@ def get_task_status(ac_task: dict) -> str:
         return "Closed"
 
     return "Open"
+
+
+def get_assignee(members: dict, ac_task: dict) -> Optional[dict]:
+    if ac_task["assignee_id"] == 212:
+        return members.get(264)
+
+    return members.get(ac_task["assignee_id"])
 
 
 def html_to_markdown(html: str) -> str:
