@@ -48,11 +48,12 @@ def get_members(
 
 
 def import_ac_attachments(
-    click_up: ClickUp,
+    clickup: ClickUp,
     spaces: dict,
     tasks: dict,
     comment_map: dict,
     folders: dict,
+    lists: dict,
     path: str = "data",
 ) -> None:
     print("Importing AC Attachments")
@@ -83,12 +84,12 @@ def import_ac_attachments(
                     ):
                         # Attach to task
                         task = tasks[attachment["parent_id"]]["id"]
-                        click_up.upload_attachment_to_task(task, a_name, file_path)
+                        clickup.upload_attachment_to_task(task, a_name, file_path)
 
                     elif attachment["parent_type"] == "Comment":
                         # Was attached to comment, attach to task
                         task = tasks[comment_map[attachment["parent_id"]]]["id"]
-                        click_up.upload_attachment_to_task(task, a_name, file_path)
+                        clickup.upload_attachment_to_task(task, a_name, file_path)
 
                     elif attachment["parent_type"] == "Note":
                         # Was attached to a note, attach to document
@@ -99,7 +100,7 @@ def import_ac_attachments(
                 else:
                     # Was attached to project, attach to default document.
                     doc = clickup.get_or_create_doc(
-                        folders[attachment["project_id"]]["id"], "Documents"
+                        lists[attachment["project_id"]]["id"], "Documents"
                     )
                     page = import_ac_note(
                         clickup,
@@ -107,7 +108,7 @@ def import_ac_attachments(
                         "AC Attachments",
                         "Attachments from ActiveCollab",
                     )
-                    click_up.upload_attachment_to_document(doc, page, a_name, file_path)
+                    clickup.upload_attachment_to_document(doc, page, a_name, file_path)
 
 
 def import_ac_projects(
@@ -122,6 +123,7 @@ def import_ac_projects(
         companies = json.load(f)
 
     folders = {}
+    lists = {}
     docs = {}
     pages = {}
     tasks = {}
@@ -139,8 +141,9 @@ def import_ac_projects(
 
         task_list = clickup.get_or_create_list(folder["id"], "_Metadata")
         import_project_details(clickup, task_list["id"], project, companies)
+        lists[project["id"]] = task_list
 
-        doc = clickup.get_or_create_doc(task_list["id"], "Documents", "list")
+        doc = clickup.get_or_create_doc(task_list["id"], "Documents")
         page = import_ac_note(clickup, doc["id"], "About", project["body"])
         docs[project["id"]] = doc
 
@@ -202,7 +205,7 @@ def import_ac_projects(
             if not parent:
                 break
 
-    return folders, docs, pages, tasks, comment_map
+    return folders, lists, docs, pages, tasks, comment_map
 
 
 def import_project_details(
@@ -418,10 +421,10 @@ if __name__ == "__main__":
     members = get_members(clickup, tokens=secrets["api_tokens_v2"])
     print()
 
-    folders, docs, pages, tasks, comment_map = import_ac_projects(
+    folders, lists, docs, pages, tasks, comment_map = import_ac_projects(
         clickup, spaces, members
     )
     print()
 
-    attachments = import_ac_attachments(clickup, spaces, tasks, comment_map, folders)
+    attachments = import_ac_attachments(clickup, spaces, tasks, comment_map, folders, lists)
     print()

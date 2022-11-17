@@ -163,9 +163,7 @@ class ClickUp:
         return self.get(f"space/{space}/folder")["folders"]
 
     @lru_cache
-    def get_or_create_doc(
-        self, parent_id: int, name: str, level: str = "folder"
-    ) -> dict:
+    def get_or_create_doc(self, parent_id: int, name: str, level: str = "list") -> dict:
         if docs := self.get_views(level, parent_id):
             doc = list(filter(lambda x: x["name"] == name and x["type"] == "doc", docs))
             if doc:
