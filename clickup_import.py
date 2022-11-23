@@ -375,8 +375,12 @@ def import_ac_task(
         if member := members.get(comment["created_by_id"]):
             token = member["token"]
 
+        text = comment["body_plain_text"]
+        if not token:
+            text = f"Originally posted by {comment['created_by_name']}"
+
         task_comment_map[comment["id"]] = comment["parent_id"]
-        clickup.get_or_create_comment(task["id"], comment["body_plain_text"], token)
+        clickup.get_or_create_comment(task["id"], text, token)
 
     return task, task_comment_map
 
