@@ -122,6 +122,10 @@ def import_ac_projects(
     with open(os.path.join(path, "companies.json"), "r") as f:
         companies = json.load(f)
 
+    with open(os.path.join(path, "job_types.json"), "r") as f:
+        job_types = json.load(f)
+        job_types = {item["id"]: item for item in job_types}
+
     folders = {}
     lists = {}
     docs = {}
@@ -192,18 +196,40 @@ def import_ac_projects(
                 comment_map = comment_map | task_comment_map
 
         # TODO: import time records
+        data = dict(
+            description="",
+            assignees=[],
+            tags=["_meta", "time"],
+            status="Open",
+            priority=None,
+            due_date_time=False,
+            time_estimate=None,
+            start_date_time=False,
+        )
+        default_time_task = clickup.get_or_create_task(
+            task_list["id"], "Time records", json.dumps(data)
+        )
+
         with open(os.path.join(project_path, "time-records.json")) as f:
             records = json.load(f)
 
         for record in records["time_records"]:
             parent_id = record["parent_id"]
             if parent_id == project["id"]:
-                parent = folder
+                parent = default_time_task
             else:
                 parent = tasks[parent_id]
 
-            if not parent:
-                break
+            data = dict(
+                description=record["summary"],
+                start=record["record_date"] * 1000,
+                billable=record["billable_status"] == 1,
+                duration=record["value"] * 60 * 60 * 1000,
+                assignee=members.get(record["created_by_id"])["user"]["id"],
+                tid=parent["id"],
+                tags=[job_types.get(record["job_type_id"])["name"]],
+            )
+            te = clickup.create_time_entry(data)
 
     return folders, lists, docs, pages, tasks, comment_map
 
@@ -426,5 +452,7 @@ if __name__ == "__main__":
     )
     print()
 
-    attachments = import_ac_attachments(clickup, spaces, tasks, comment_map, folders, lists)
+    attachments = import_ac_attachments(
+        clickup, spaces, tasks, comment_map, folders, lists
+    )
     print()

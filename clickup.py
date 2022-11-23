@@ -275,3 +275,6 @@ class ClickUp:
 
     def set_custom_field(self, task: int, field: str, value) -> dict:
         return self.post(f"task/{task}/field/{field}", payload=dict(value=value))
+
+    def create_time_entry(self, data: dict) -> dict:
+        return self.post(f"team/{self.team_id}/time_entries", payload=data)
