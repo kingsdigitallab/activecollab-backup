@@ -195,11 +195,10 @@ def import_ac_projects(
             if task_comment_map is not None:
                 comment_map = comment_map | task_comment_map
 
-        # TODO: import time records
         data = dict(
             description="",
             assignees=[],
-            tags=["_meta", "time"],
+            tags=[],
             status="Open",
             priority=None,
             due_date_time=False,
@@ -207,7 +206,7 @@ def import_ac_projects(
             start_date_time=False,
         )
         default_time_task = clickup.get_or_create_task(
-            task_list["id"], "Time records", json.dumps(data)
+            task_list["id"], "ActiveCollab project time entries", json.dumps(data)
         )
 
         with open(os.path.join(project_path, "time-records.json")) as f:
@@ -227,9 +226,12 @@ def import_ac_projects(
                 duration=record["value"] * 60 * 60 * 1000,
                 assignee=members.get(record["created_by_id"])["user"]["id"],
                 tid=parent["id"],
-                tags=[job_types.get(record["job_type_id"])["name"]],
+                tags=[
+                    dict(name="activecollab"),
+                    dict(name=job_types.get(record["job_type_id"])["name"]),
+                ],
             )
-            te = clickup.create_time_entry(data)
+            clickup.create_time_entry(data)
 
     return folders, lists, docs, pages, tasks, comment_map
 
