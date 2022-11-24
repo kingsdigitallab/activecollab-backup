@@ -15,8 +15,7 @@ from glob import glob
 # Set your variables here:
 # ############################################
 
-#BACKUP_DIR = '/vol/kdldata/ActiveCollabBackup'
-BACKUP_DIR = '../data'
+BACKUP_DIR = '/data/prod/ac_data'
 
 
 
