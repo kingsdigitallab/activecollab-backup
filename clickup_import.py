@@ -1,4 +1,5 @@
 import json
+import locale
 import os
 import re
 from datetime import datetime
@@ -10,6 +11,8 @@ from typing import Optional
 from markdownify import markdownify
 
 from clickup import ClickUp
+
+locale.setlocale(locale.LC_ALL, "en_GB.UTF-8")
 
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
@@ -308,6 +311,13 @@ def import_project_details(
         expenses = json.load(f)["expenses"]
 
     spend = sum(map(lambda x: x["value"], expenses))
+    expenses = map(
+        lambda x: (
+            f"- _{get_date(x['record_date'])}_, "
+            f"{x['summary']}: **{locale.currency(x['value'])}**"
+        ),
+        expenses,
+    )
 
     custom_fields = [
         # overall budget
@@ -317,7 +327,7 @@ def import_project_details(
     ]
 
     data = dict(
-        description="",
+        markdown_description=f"## Expenses\n{'<br>'.join(expenses)}",
         assignees=[],
         tags=["_meta", "budget"],
         status="Open",
