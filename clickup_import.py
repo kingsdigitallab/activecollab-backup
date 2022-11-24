@@ -2,6 +2,7 @@ import json
 import os
 import re
 from datetime import datetime
+from functools import reduce
 from glob import glob
 from pprint import pprint
 from typing import Optional
@@ -144,7 +145,9 @@ def import_ac_projects(
         print(f"- {folder_name}")
 
         task_list = clickup.get_or_create_list(folder["id"], "_Metadata")
-        import_project_details(clickup, task_list["id"], project, companies)
+        import_project_details(
+            project_path, clickup, task_list["id"], project, companies
+        )
         lists[project["id"]] = task_list
 
         doc = clickup.get_or_create_doc(task_list["id"], "Documents")
@@ -237,37 +240,86 @@ def import_ac_projects(
 
 
 def import_project_details(
-    clickup: ClickUp, task_list_id: int, project: dict, companies: list
-) -> dict:
-    if not (
-        companies := list(filter(lambda x: x["id"] == project["company_id"], companies))
-    ):
-        return {}
+    project_path: str,
+    clickup: ClickUp,
+    task_list_id: int,
+    project: dict,
+    companies: list,
+) -> tuple[dict, dict]:
+    task_details = None
+    task_budget = None
 
-    print("- Import project details")
-    details = {"Partner organisation(s)": "King's College, London"}
-    faculty, department = companies[0]["name"].split(":")
-    details["Faculty"] = faculty.strip()
-    details["Department(s)"] = department.strip()
+    if companies := list(filter(lambda x: x["id"] == project["company_id"], companies)):
+        print("- Import project details")
+        details = {"Partner organisation(s)": "King's College, London"}
+        faculty, department = companies[0]["name"].split(":")
+        details["Faculty"] = faculty.strip()
+        details["Department(s)"] = department.strip()
 
-    if faculty == "External":
-        details["Partner organisation(s)"] = ""
-    if faculty == "KCL":
-        details["Faculty"] = ""
-    if faculty == "King's":
-        details["Faculty"] = details["Department(s)"]
-        details["Department(s)"] = ""
+        if faculty == "External":
+            details["Partner organisation(s)"] = ""
+        if faculty == "KCL":
+            details["Faculty"] = ""
+        if faculty == "King's":
+            details["Faculty"] = details["Department(s)"]
+            details["Department(s)"] = ""
+
+        custom_fields = [
+            dict(id="4c0f85e5-e82d-4980-b511-de41cefd6163", value=0),
+            dict(id="342f55be-f7b0-4508-8242-2d573696e299", value=[]),
+            dict(id="d98a262e-632d-4b9f-8776-520fbe5b29ee", value=[]),
+        ]
+
+        data = dict(
+            description="",
+            assignees=[],
+            tags=["_meta", "details"],
+            status="Open",
+            priority=None,
+            due_date_time=False,
+            time_estimate=None,
+            start_date_time=False,
+            custom_fields=custom_fields,
+        )
+
+        task_details = clickup.get_or_create_task(
+            task_list_id, "Project details", json.dumps(data)
+        )
+
+        fields = clickup.get_custom_fields(task_list_id)
+        if fields and len(fields) > 0:
+            for key, value in details.items():
+                field = list(filter(lambda x: x["name"] == key, fields))[0]
+                if field_options := list(
+                    filter(
+                        lambda x: x.get("name") == value or x.get("label") == value,
+                        field["type_config"]["options"],
+                    )
+                ):
+                    field_value = list(map(lambda x: x["id"], field_options))
+                    if key == "Faculty":
+                        field_value = field_value[0]
+
+                    clickup.set_custom_field(
+                        task_details["id"], field["id"], field_value
+                    )
+
+    with open(os.path.join(project_path, "expenses.json")) as f:
+        expenses = json.load(f)["expenses"]
+
+    spend = sum(map(lambda x: x["value"], expenses))
 
     custom_fields = [
-        dict(id="4c0f85e5-e82d-4980-b511-de41cefd6163", value=0),
-        dict(id="342f55be-f7b0-4508-8242-2d573696e299", value=[]),
-        dict(id="d98a262e-632d-4b9f-8776-520fbe5b29ee", value=[]),
+        # overall budget
+        dict(id="3dcddcd7-4a5b-4380-95c8-1154a9ce8ff8", value=project["budget"]),
+        # other expenses spend
+        dict(id="6e5a4048-e1ee-4ed8-b4b6-ffb54675fb5a", value=spend),
     ]
 
     data = dict(
         description="",
         assignees=[],
-        tags=["_meta", "details"],
+        tags=["_meta", "budget"],
         status="Open",
         priority=None,
         due_date_time=False,
@@ -276,25 +328,11 @@ def import_project_details(
         custom_fields=custom_fields,
     )
 
-    task = clickup.get_or_create_task(task_list_id, "Project details", json.dumps(data))
+    task_budget = clickup.get_or_create_task(
+        task_list_id, "Project budget", json.dumps(data)
+    )
 
-    fields = clickup.get_custom_fields(task_list_id)
-    if fields and len(fields) > 0:
-        for key, value in details.items():
-            field = list(filter(lambda x: x["name"] == key, fields))[0]
-            if field_options := list(
-                filter(
-                    lambda x: x.get("name") == value or x.get("label") == value,
-                    field["type_config"]["options"],
-                )
-            ):
-                field_value = list(map(lambda x: x["id"], field_options))
-                if key == "Faculty":
-                    field_value = field_value[0]
-
-                clickup.set_custom_field(task["id"], field["id"], field_value)
-
-    return task
+    return task_details, task_budget
 
 
 def get_date(timestamp: int) -> str:
