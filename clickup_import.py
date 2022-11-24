@@ -369,7 +369,7 @@ def import_ac_task(
     status = get_task_status(ac_task)
 
     data = dict(
-        description=html_to_markdown(single["body"]),
+        markdown_description=html_to_markdown(single["body"]),
         assignees=[],
         tags=tags,
         status=status,
