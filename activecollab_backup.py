@@ -16,7 +16,7 @@ from glob import glob
 # ############################################
 
 #BACKUP_DIR = '/vol/kdldata/ActiveCollabBackup'
-BACKUP_DIR = '/Users/brian/Downloads'
+BACKUP_DIR = '../data'
 
 
 
