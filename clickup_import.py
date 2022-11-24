@@ -177,13 +177,16 @@ def import_ac_projects(
         with open(os.path.join(project_path, "tasks.json")) as f:
             project_tasks = json.load(f)
 
+        with open(os.path.join(project_path, "project.json")) as f:
+            hourly_rates = json.load(f)["hourly_rates"]
+
         for pt in project_tasks["tasks"]:
             task_path = os.path.join(project_path, "tasks", str(pt["id"]))
             with open(os.path.join(task_path, "tasks.json"), "r") as f:
                 ac_task = json.load(f)
 
             tasks[ac_task["single"]["id"]], task_comment_map = import_ac_task(
-                clickup, task_list["id"], ac_task, members
+                clickup, task_list["id"], ac_task, members, hourly_rates
             )
 
             if task_comment_map is not None:
@@ -195,7 +198,7 @@ def import_ac_projects(
                 ac_task = json.load(f)
 
             tasks[ac_task["single"]["id"]], task_comment_map = import_ac_task(
-                clickup, task_list["id"], ac_task, members
+                clickup, task_list["id"], ac_task, members, hourly_rates
             )
 
             if task_comment_map is not None:
@@ -234,7 +237,7 @@ def import_ac_projects(
                 tid=parent["id"],
                 tags=[
                     dict(name="activecollab"),
-                    dict(name=job_types.get(record["job_type_id"])["name"]),
+                    dict(name=job_types.get(record["job_type_id"]).get("name")),
                 ],
             )
             clickup.create_time_entry(data)
@@ -355,7 +358,7 @@ def import_ac_note(clickup: ClickUp, doc: str, name: str, body: str) -> dict:
 
 
 def import_ac_task(
-    clickup: ClickUp, task_list_id: int, ac_task: dict, members: dict
+    clickup: ClickUp, task_list_id: int, ac_task: dict, members: dict, job_types: dict
 ) -> tuple:
     task_comment_map = {}
 
@@ -365,11 +368,23 @@ def import_ac_task(
     single = ac_task["single"]
     name = single["name"]
 
+    job_type_id = str(single["job_type_id"])
+    rate = job_types.get(job_type_id, 0)
+    if rate < 1:
+        rate = 0
+
     tags = get_task_tags(name)
     status = get_task_status(ac_task)
 
+    custom_fields = [
+        # rate
+        dict(id="83c64fc3-773b-4006-bc0d-ab26c930efbd", value=rate),
+        # spend
+        dict(id="03f22a42-a33d-4cc8-b38e-e21733d69ab8", value=0),
+    ]
+
     data = dict(
-        description=html_to_markdown(single["body"]),
+        markdown_description=html_to_markdown(single["body"]),
         assignees=[],
         tags=tags,
         status=status,
@@ -377,6 +392,7 @@ def import_ac_task(
         due_date_time=False,
         time_estimate=single["estimate"] * 60 * 60 * 1000,
         start_date_time=False,
+        custom_fields=custom_fields,
     )
 
     if member := get_assignee(members, single):
