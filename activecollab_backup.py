@@ -220,9 +220,9 @@ def daily():
         notes = ac.get('projects/{0}/notes'.format(pid))
         save_file(notes, os.path.join(project_dir, 'notes.json'))
 
-        # Get Project Tasks
-        tasks = ac.get('projects/{0}/tasks'.format(pid))
-        save_file(tasks, os.path.join(project_dir, 'tasks.json'))
+        # Get Project JSON (for hourly rates)
+        tasks = ac.get('projects/{0}'.format(pid))
+        save_file(tasks, os.path.join(project_dir, 'project.json'))
 
         if len(tasks['tasks']):
             for task in tasks['tasks']:
