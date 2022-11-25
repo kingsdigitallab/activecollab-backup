@@ -80,10 +80,7 @@ class ClickUp:
         response = requests.post(
             url, headers=self.get_headers(version), data=payload, files=files
         )
-        pprint(response.request.url)
-        pprint(response.request.headers)
-        pprint(response.request.body)
-
+    
         return response.json()
 
     def put(
@@ -241,7 +238,6 @@ class ClickUp:
                 f"attachment", payload, files, version="v1_attach"
             )
 
-            pprint(uploaded_file)
             return
 
     # No need to cache this!
