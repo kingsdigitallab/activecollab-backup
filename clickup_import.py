@@ -153,6 +153,7 @@ def import_ac_projects(
         )
         lists[project["id"]] = task_list
 
+        print("-- Import notes")
         doc = clickup.get_or_create_doc(task_list["id"], "Documents")
         page = import_ac_note(clickup, doc["id"], "About", project["body"])
         docs[project["id"]] = doc
@@ -171,8 +172,10 @@ def import_ac_projects(
             pages[note["id"]] = page
 
         # import tasks
+        print("-- Import tasks")
+        template_funded = "t-212487909"
         list_name = re.split(r"[\[\(:;]", folder_name)[0].strip()
-        task_list = clickup.get_or_create_list(folder["id"], list_name)
+        task_list = clickup.get_or_create_list(folder["id"], list_name, template_funded)
 
         with open(os.path.join(project_path, "tasks.json")) as f:
             project_tasks = json.load(f)
@@ -204,6 +207,7 @@ def import_ac_projects(
             if task_comment_map is not None:
                 comment_map = comment_map | task_comment_map
 
+        print("-- Import time records")
         data = dict(
             description="",
             assignees=[],
@@ -256,7 +260,7 @@ def import_project_details(
     task_budget = None
 
     if companies := list(filter(lambda x: x["id"] == project["company_id"], companies)):
-        print("- Import project details")
+        print("-- Import project details")
         details = {"Partner organisation(s)": "King's College, London"}
         faculty, department = companies[0]["name"].split(":")
         details["Faculty"] = faculty.strip()
