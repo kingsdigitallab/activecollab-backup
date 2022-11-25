@@ -96,7 +96,7 @@ def import_ac_attachments(
                         task = tasks[comment_map[attachment["parent_id"]]]["id"]
                         clickup.upload_attachment_to_task(task, a_name, file_path)
                         continue
-                
+
                 # It was somewhere else, attach to an "AC Imported Attachments" task
                 # in the metadata list
 
@@ -109,7 +109,6 @@ def import_ac_attachments(
                 )
                 clickup.upload_attachment_to_task(task["id"], a_name, file_path)
                 continue
-
 
 
 def import_ac_projects(
@@ -172,7 +171,9 @@ def import_ac_projects(
         print("-- Import tasks")
         template_funded = "t-212487909"
         list_name = re.split(r"[\[\(:;]", folder_name)[0].strip()
-        task_list = clickup.get_or_create_list(folder["id"], list_name, template_funded)
+        task_list = clickup.create_list_from_template(
+            folder["id"], list_name, template_funded
+        )
 
         with open(os.path.join(project_path, "tasks.json")) as f:
             project_tasks = json.load(f)

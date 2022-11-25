@@ -15,7 +15,7 @@ class ClickUp:
         self.api_urls = {}
         self.api_tokens = {}
 
-        self.api_urls["v1"] = f"https://app.clickup.com/docs/v1"
+        self.api_urls["v1"] = f"https://app.clickup.com"
         self.api_urls["v1_attach"] = f"https://attch.clickup.com/v1"
         self.api_urls["v2"] = f"https://api.clickup.com/api/v2"
         self.api_tokens["v1"] = api_token_v1
@@ -80,7 +80,7 @@ class ClickUp:
         response = requests.post(
             url, headers=self.get_headers(version), data=payload, files=files
         )
-    
+
         return response.json()
 
     def put(
@@ -182,28 +182,66 @@ class ClickUp:
                 return page[0]
 
         payload = {"name": name, "content": body}
-        return self.post(f"view/{doc}/page", payload, "v1")
+        return self.post(f"docs/v1/view/{doc}/page", payload, "v1")
 
     @lru_cache
     def get_pages(self, doc: int) -> list:
-        pages = self.get(f"view/{doc}/page", version="v1")
+        pages = self.get(f"docs/v1/view/{doc}/page", version="v1")
         return pages["pages"]
 
     @lru_cache
-    def get_or_create_list(self, folder: int, name: str, template: str = "") -> dict:
+    def get_or_create_list(self, folder: int, name: str) -> dict:
         if lists := self.get_lists(folder):
             l = list(filter(lambda x: x["name"] == name, lists))
             if l:
                 return l[0]
 
         payload = dict(name=name)
-        if template:
-            payload["template_id"] = template
+
         return self.post(f"folder/{folder}/list", payload)
 
     @lru_cache
     def get_lists(self, folder: int) -> list:
         return self.get(f"folder/{folder}/list")["lists"]
+
+    def create_list_from_template(self, folder: int, name: str, template: str) -> dict:
+        payload = {
+            "category_id": folder,
+            "name": name,
+            "template_id": template,
+            "task_id": None,
+            "archived": 0,
+            "attachments": True,
+            "automation": True,
+            "comment": True,
+            "comment_attachments": True,
+            "content": True,
+            "custom_fields": True,
+            "external_dependencies": True,
+            "include_views": True,
+            "internal_dependencies": True,
+            "old_assignees": True,
+            "old_checklists": True,
+            "old_due_date": True,
+            "old_followers": True,
+            "old_start_date": True,
+            "old_status": True,
+            "old_statuses": True,
+            "old_subtask_assignees": True,
+            "old_tags": True,
+            "priority": True,
+            "recur_settings": True,
+            "return_immediately": True,
+            "subtasks": True,
+            "time_estimate": True,
+            "v2_sub_template": True,
+        }
+
+        return self.post(
+            f"templates/v1/subcategoryTemplate/{template}?v2=true",
+            payload=payload,
+            version="v1",
+        )
 
     @lru_cache
     def get_or_create_task(
