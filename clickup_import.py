@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 from glob import glob
 from pprint import pprint
+from time import sleep
 from typing import Optional
 
 from markdownify import markdownify
@@ -170,9 +171,17 @@ def import_ac_projects(
         print("-- Import tasks")
         template_funded = "t-212487909"
         list_name = re.split(r"[\[\(:;]", folder_name)[0].strip()
-        task_list = clickup.create_list_from_template(
-            folder["id"], list_name, template_funded
-        )
+
+        folder_lists = clickup.get_lists(folder["id"])
+        if found := list(filter(lambda x: x["name"] == list_name, folder_lists)):
+            task_list = found[0]
+        else:
+            task_list = clickup.create_list_from_template(
+                folder["id"], list_name, template_funded
+            )
+            task_list = clickup.get_list(task_list["id"])
+            sleep(10)
+
         task_list_id = task_list["id"]
 
         with open(os.path.join(project_path, "tasks.json")) as f:
@@ -434,7 +443,13 @@ def import_ac_task(
         if member := get_assignee(members, subtask):
             data["assignees"] = [member["user"]["id"]]
 
-        clickup.get_or_create_task(task_list_id, subtask["name"], json.dumps(data))
+        token = None
+        if member := members.get(subtask["created_by_id"]):
+            token = member["token"]
+
+        clickup.get_or_create_task(
+            task_list_id, subtask["name"], json.dumps(data), token
+        )
 
     for comment in ac_task["comments"]:
         token = None
