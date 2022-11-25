@@ -3,7 +3,6 @@ import locale
 import os
 import re
 from datetime import datetime
-from functools import reduce
 from glob import glob
 from pprint import pprint
 from typing import Optional
@@ -174,6 +173,7 @@ def import_ac_projects(
         task_list = clickup.create_list_from_template(
             folder["id"], list_name, template_funded
         )
+        task_list_id = task_list["id"]
 
         with open(os.path.join(project_path, "tasks.json")) as f:
             project_tasks = json.load(f)
@@ -187,7 +187,7 @@ def import_ac_projects(
                 ac_task = json.load(f)
 
             tasks[ac_task["single"]["id"]], task_comment_map = import_ac_task(
-                clickup, task_list["id"], ac_task, members, hourly_rates
+                clickup, task_list_id, ac_task, members, hourly_rates
             )
 
             if task_comment_map is not None:
@@ -199,7 +199,7 @@ def import_ac_projects(
                 ac_task = json.load(f)
 
             tasks[ac_task["single"]["id"]], task_comment_map = import_ac_task(
-                clickup, task_list["id"], ac_task, members, hourly_rates
+                clickup, task_list_id, ac_task, members, hourly_rates
             )
 
             if task_comment_map is not None:
@@ -382,7 +382,7 @@ def import_ac_task(
         # rate
         dict(id="83c64fc3-773b-4006-bc0d-ab26c930efbd", value=rate),
         # spend
-        dict(id="03f22a42-a33d-4cc8-b38e-e21733d69ab8", value=0),
+        dict(id="b05c5fb3-d3b6-4cd4-bf37-e3142666f051", value=0),
     ]
 
     data = dict(
