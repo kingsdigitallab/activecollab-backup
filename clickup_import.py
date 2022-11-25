@@ -89,30 +89,27 @@ def import_ac_attachments(
                         # Attach to task
                         task = tasks[attachment["parent_id"]]["id"]
                         clickup.upload_attachment_to_task(task, a_name, file_path)
+                        continue
 
                     elif attachment["parent_type"] == "Comment":
                         # Was attached to comment, attach to task
                         task = tasks[comment_map[attachment["parent_id"]]]["id"]
                         clickup.upload_attachment_to_task(task, a_name, file_path)
+                        continue
+                
+                # It was somewhere else, attach to an "AC Imported Attachments" task
+                # in the metadata list
 
-                    elif attachment["parent_type"] == "Note":
-                        # Was attached to a note, attach to document
-                        pass
-                    else:
-                        # It was... somewhere?! Attach to default document. Probably a task that was not imported.
-                        pass
-                else:
-                    # Was attached to project, attach to default document.
-                    doc = clickup.get_or_create_doc(
-                        lists[attachment["project_id"]]["id"], "Documents"
-                    )
-                    page = import_ac_note(
-                        clickup,
-                        doc["id"],
-                        "AC Attachments",
-                        "Attachments from ActiveCollab",
-                    )
-                    clickup.upload_attachment_to_document(doc, page, a_name, file_path)
+                folder = folders[attachment["project_id"]]
+                task_list = clickup.get_or_create_list(folder["id"], "_Metadata")
+
+                data = {}
+                task = clickup.get_or_create_task(
+                    task_list["id"], "AC Imported Attachments", json.dumps(data)
+                )
+                clickup.upload_attachment_to_task(task["id"], a_name, file_path)
+                continue
+
 
 
 def import_ac_projects(
