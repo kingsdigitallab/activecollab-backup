@@ -18,7 +18,7 @@ with open('ac_secrets.json.nogit') as f:
 # ############################################
 
 #BACKUP_DIR = '/vol/kdldata/ActiveCollabBackup'
-BACKUP_DIR = '/Users/brian/Downloads'
+BACKUP_DIR = '/data/prod/ac_data'
 
 # ############################################
 # Stop editing here!
