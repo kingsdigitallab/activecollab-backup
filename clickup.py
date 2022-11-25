@@ -190,13 +190,15 @@ class ClickUp:
         return pages["pages"]
 
     @lru_cache
-    def get_or_create_list(self, folder: int, name: str) -> dict:
+    def get_or_create_list(self, folder: int, name: str, template: str = "") -> dict:
         if lists := self.get_lists(folder):
             l = list(filter(lambda x: x["name"] == name, lists))
             if l:
                 return l[0]
 
         payload = dict(name=name)
+        if template:
+            payload["template_id"] = template
         return self.post(f"folder/{folder}/list", payload)
 
     @lru_cache
