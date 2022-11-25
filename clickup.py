@@ -1,6 +1,5 @@
 import json
 from functools import lru_cache
-from pprint import pprint
 
 import requests
 
@@ -203,6 +202,9 @@ class ClickUp:
     @lru_cache
     def get_lists(self, folder: int) -> list:
         return self.get(f"folder/{folder}/list")["lists"]
+
+    def get_list(self, list_id: int) -> dict:
+        return self.get(f"list/{list_id}")
 
     def create_list_from_template(self, folder: int, name: str, template: str) -> dict:
         payload = {
