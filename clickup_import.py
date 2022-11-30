@@ -2,6 +2,7 @@ import json
 import locale
 import os
 import re
+from collections import defaultdict
 from datetime import datetime
 from glob import glob
 from pprint import pprint
@@ -143,9 +144,11 @@ def import_ac_projects(
         folder_name = folder["name"]
         print(f"- {folder_name}")
 
+        acronym = re.split(r"[\[\(:;]", folder_name)[0].strip()
+
         task_list = clickup.get_or_create_list(folder["id"], "_Metadata")
         import_project_details(
-            project_path, clickup, task_list["id"], project, companies
+            project_path, clickup, task_list["id"], project, acronym, companies
         )
         lists[project["id"]] = task_list
 
@@ -167,91 +170,96 @@ def import_ac_projects(
             page = import_ac_note(clickup, doc["id"], note["name"], body)
             pages[note["id"]] = page
 
-        # import tasks
-        print("-- Import tasks")
-        template_funded = "t-212487909"
-        list_name = re.split(r"[\[\(:;]", folder_name)[0].strip()
+        with open(os.path.join(project_path, "project.json")) as f:
+            hourly_rates = json.load(f)["hourly_rates"]
 
-        folder_lists = clickup.get_lists(folder["id"])
-        if found := list(filter(lambda x: x["name"] == list_name, folder_lists)):
-            task_list = found[0]
-        else:
-            task_list = clickup.create_list_from_template(
-                folder["id"], list_name, template_funded
-            )
-            task_list = clickup.get_list(task_list["id"])
-            sleep(10)
-
-        task_list_id = task_list["id"]
+        with open(os.path.join(project_path, "time-records.json")) as f:
+            time_records = json.load(f)["time_records"]
 
         with open(os.path.join(project_path, "tasks.json")) as f:
             project_tasks = json.load(f)
 
-        with open(os.path.join(project_path, "project.json")) as f:
-            hourly_rates = json.load(f)["hourly_rates"]
-
-        for pt in project_tasks["tasks"]:
-            task_path = os.path.join(project_path, "tasks", str(pt["id"]))
-            with open(os.path.join(task_path, "tasks.json"), "r") as f:
-                ac_task = json.load(f)
-
-            tasks[ac_task["single"]["id"]], task_comment_map = import_ac_task(
-                clickup, task_list_id, ac_task, members, hourly_rates
-            )
-
-            if task_comment_map is not None:
-                comment_map = comment_map | task_comment_map
-
-        for pt in project_tasks["completed_task_ids"]:
-            task_path = os.path.join(project_path, "tasks/archived", str(pt))
-            with open(os.path.join(task_path, "tasks.json"), "r") as f:
-                ac_task = json.load(f)
-
-            tasks[ac_task["single"]["id"]], task_comment_map = import_ac_task(
-                clickup, task_list_id, ac_task, members, hourly_rates
-            )
-
-            if task_comment_map is not None:
-                comment_map = comment_map | task_comment_map
-
-        print("-- Import time records")
-        data = dict(
-            description="",
-            assignees=[],
-            tags=[],
-            status="Open",
-            priority=None,
-            due_date_time=False,
-            time_estimate=None,
-            start_date_time=False,
-        )
-        default_time_task = clickup.get_or_create_task(
-            task_list["id"], "ActiveCollab project time entries", json.dumps(data)
+        # import tasks
+        print("-- Import tasks")
+        task_data = prepare_task_data(
+            acronym, project_tasks, time_records, job_types, hourly_rates
         )
 
-        with open(os.path.join(project_path, "time-records.json")) as f:
-            records = json.load(f)
+        for list_name in task_data.keys():
+            template = "t-212487909"
+            if "pre-project" in list_name:
+                template = "t-212487803"
 
-        for record in records["time_records"]:
-            parent_id = record["parent_id"]
-            if parent_id == project["id"]:
-                parent = default_time_task
+            folder_lists = clickup.get_lists(folder["id"])
+            if found := list(filter(lambda x: x["name"] == list_name, folder_lists)):
+                task_list = found[0]
             else:
-                parent = tasks[parent_id]
+                task_list = clickup.create_list_from_template(
+                    folder["id"], list_name, template
+                )
+                task_list = clickup.get_list(task_list["id"])
+                sleep(10)
 
-            data = dict(
-                description=record["summary"],
-                start=record["record_date"] * 1000,
-                billable=record["billable_status"] == 1,
-                duration=record["value"] * 60 * 60 * 1000,
-                assignee=members.get(record["created_by_id"])["user"]["id"],
-                tid=parent["id"],
-                tags=[
-                    dict(name="activecollab"),
-                    dict(name=job_types.get(record["job_type_id"]).get("name")),
-                ],
-            )
-            clickup.create_time_entry(data)
+            task_list_id = task_list["id"]
+
+            for pt in task_data[list_name]["tasks"]:
+                ac_task_id = pt["id"]
+                print(f"--- Importing AC task {ac_task_id}")
+
+                if ac_task_id:
+                    if pt["is_completed"]:
+                        task_path = os.path.join(
+                            project_path, "tasks/archived", str(ac_task_id)
+                        )
+                    else:
+                        task_path = os.path.join(project_path, "tasks", str(ac_task_id))
+
+                    with open(os.path.join(task_path, "tasks.json"), "r") as f:
+                        ac_task = json.load(f)
+
+                    task, task_comment_map = import_ac_task(
+                        clickup,
+                        task_list_id,
+                        ac_task,
+                        members,
+                        hourly_rates,
+                        pt["rate"],
+                    )
+                    tasks[ac_task["single"]["id"]] = task
+
+                    if task_comment_map is not None:
+                        comment_map = comment_map | task_comment_map
+                else:
+                    data = dict(
+                        description="",
+                        assignees=[],
+                        tags=[],
+                        status="Open",
+                        priority=None,
+                        due_date_time=False,
+                        time_estimate=None,
+                        start_date_time=False,
+                    )
+                    task = clickup.get_or_create_task(
+                        task_list_id,
+                        "ActiveCollab project time entries",
+                        json.dumps(data),
+                    )
+
+                for record in pt["time_records"]:
+                    data = dict(
+                        description=record["summary"],
+                        start=record["ts"],
+                        billable=record["billable_status"] == 1,
+                        duration=record["value"],
+                        assignee=members.get(record["created_by_id"])["user"]["id"],
+                        tid=task["id"],
+                        tags=[
+                            dict(name="activecollab"),
+                            dict(name=record["tag"]),
+                        ],
+                    )
+                    resp = clickup.create_time_entry(data)
 
     return folders, lists, docs, pages, tasks, comment_map
 
@@ -261,6 +269,7 @@ def import_project_details(
     clickup: ClickUp,
     task_list_id: int,
     project: dict,
+    acronym: str,
     companies: list,
 ) -> tuple[dict, dict]:
     task_details = None
@@ -282,9 +291,16 @@ def import_project_details(
             details["Department(s)"] = ""
 
         custom_fields = [
+            # faculty
             dict(id="4c0f85e5-e82d-4980-b511-de41cefd6163", value=0),
+            # department
             dict(id="342f55be-f7b0-4508-8242-2d573696e299", value=[]),
+            # partner organisation
             dict(id="d98a262e-632d-4b9f-8776-520fbe5b29ee", value=[]),
+            # ac project id
+            dict(id="1fabc62c-b9b9-42ef-b3f3-0158f2106ae2", value=str(project["id"])),
+            # spend
+            dict(id="b05c5fb3-d3b6-4cd4-bf37-e3142666f051", value=0),
         ]
 
         data = dict(
@@ -300,13 +316,15 @@ def import_project_details(
         )
 
         task_details = clickup.get_or_create_task(
-            task_list_id, "Project details", json.dumps(data)
+            task_list_id, acronym, json.dumps(data)
         )
 
         fields = clickup.get_custom_fields(task_list_id)
         if fields and len(fields) > 0:
             for key, value in details.items():
-                field = list(filter(lambda x: x["name"] == key, fields))[0]
+                if field := list(filter(lambda x: x["name"] == key, fields)):
+                    field = field[0]
+
                 if field_options := list(
                     filter(
                         lambda x: x.get("name") == value or x.get("label") == value,
@@ -368,8 +386,146 @@ def import_ac_note(clickup: ClickUp, doc: str, name: str, body: str) -> dict:
     return clickup.get_or_create_page(doc, name, body)
 
 
+def prepare_task_data(
+    list_name: str, tasks: dict, records: list, job_types: dict, hourly_rates: dict
+) -> dict:
+    prepared_time_records = prepare_time_records(
+        list_name, records, job_types, hourly_rates
+    )
+
+    with open("prepared_time_records.json", "w") as f:
+        json.dump(prepared_time_records, f)
+
+    _tasks = []
+    for task in [*tasks["tasks"], *tasks["completed_task_ids"]]:
+        if type(task) == int:
+            _tasks.append(dict(id=task, is_completed=True))
+        else:
+            _tasks.append(dict(id=task["id"], is_completed=False))
+
+    prepared_tasks = []
+    for task in _tasks:
+        found = filter(lambda x: x["task_id"] == task["id"], prepared_time_records)
+
+        pt = {**task, "list_names": [], "time_records": []}
+
+        for tr in found:
+            pt["list_names"].append(tr["list_name"])
+            pt["time_records"].append(tr)
+        else:
+            pt["list_names"].append(prepared_time_records[-1]["list_name"])
+
+        pt["list_names"] = list(set(pt["list_names"]))
+
+        prepared_tasks.append(pt)
+
+    with open("prepared_tasks.json", "w") as f:
+        json.dump(prepared_tasks, f)
+
+    list_names = set([tr["list_name"] for tr in prepared_time_records])
+
+    prepared_data = {}
+
+    for ln in list_names:
+        prepared_data[ln] = {}
+        prepared_data[ln]["tasks"] = []
+        for t in filter(lambda x: ln in x["list_names"], prepared_tasks):
+            task = {**t}
+            task["time_records"] = list(
+                filter(lambda x: x["list_name"] == ln, t["time_records"])
+            )
+            task["rate"] = (
+                task["time_records"][0]["rate"] if len(task["time_records"]) else -1
+            )
+            prepared_data[ln]["tasks"].append(task)
+
+        prepared_data[ln]["tasks"].append(
+            {
+                "id": None,
+                "time_records": list(
+                    filter(
+                        lambda x: x["task_id"] == None and x["list_name"] == ln,
+                        prepared_time_records,
+                    )
+                ),
+            }
+        )
+
+    with open("prepared_data.json", "w") as f:
+        json.dump(prepared_data, f)
+
+    return prepared_data
+
+
+def prepare_time_records(
+    list_name: str, records: list, job_types: dict, hourly_rates: dict
+) -> list:
+    records = sorted(records, key=lambda x: x["record_date"])
+    time_records = []
+    for record in records:
+        job_type_id = record["job_type_id"]
+        job_type = job_types[job_type_id]["name"]
+        hourly_rate = round(hourly_rates[str(job_type_id)])
+
+        name = hourly_rate
+        if job_type == "pre-project":
+            name = job_type
+
+        if hourly_rate > 0:
+            name = "funded"
+
+        time_records.append(
+            dict(
+                name=name,
+                list_name=f"{list_name} {name}",
+                billable_status=record["billable_status"],
+                rate=hourly_rate,
+                value=round(record["value"] * 60 * 60 * 1000, 2),
+                ts=record["record_date"] * 1000,
+                summary=record["summary"],
+                tag=job_type,
+                task_id=record["parent_id"]
+                if record["parent_type"] == "Task"
+                else None,
+                created_by_id=record["created_by_id"],
+            )
+        )
+
+    time_records = sorted(time_records, key=lambda x: x["rate"])
+    rates = list(set([tr["rate"] for tr in time_records]))
+    time_records = [
+        {
+            **tr,
+            "list_name": f"{tr['list_name']} {rates.index(tr['rate'])}"
+            if rates.index(tr["rate"]) > 1
+            else tr["list_name"],
+        }
+        for tr in time_records
+    ]
+
+    time_records_with_rate = filter(lambda x: x["rate"] > 0, time_records)
+
+    prepared_time_records = []
+    for record in time_records:
+        if record["name"] == 0:
+            closest = min(
+                time_records_with_rate, key=lambda x: abs(x["ts"] - record["ts"])
+            )
+            record["name"] = closest["name"]
+            record["list_name"] = closest["list_name"]
+
+        prepared_time_records.append(record)
+
+    return prepared_time_records
+
+
 def import_ac_task(
-    clickup: ClickUp, task_list_id: int, ac_task: dict, members: dict, job_types: dict
+    clickup: ClickUp,
+    task_list_id: int,
+    ac_task: dict,
+    members: dict,
+    job_types: dict,
+    time_rate: int = -1,
 ) -> tuple:
     task_comment_map = {}
 
@@ -380,7 +536,7 @@ def import_ac_task(
     name = single["name"]
 
     job_type_id = str(single["job_type_id"])
-    rate = job_types.get(job_type_id, 0)
+    rate = time_rate if time_rate > 0 else job_types.get(job_type_id, 0)
     if rate < 1:
         rate = 0
 

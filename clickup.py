@@ -1,5 +1,6 @@
 import json
 from functools import lru_cache
+from pprint import pprint
 
 import requests
 
@@ -26,8 +27,6 @@ class ClickUp:
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
         headers = self.get_headers(version)
-
-        print(f"--- GET {url}")
 
         response = requests.get(url, headers=headers, params=params)
         return response.json()
@@ -61,11 +60,17 @@ class ClickUp:
         token: str = "",
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
-        print(f"--- POST {url}")
         response = requests.post(
             url, headers=self.get_headers(version, token), json=payload
         )
-        return response.json()
+        data = response.json()
+
+        if "ECODE" in data:
+            pprint(url)
+            pprint(payload)
+            pprint(data)
+
+        return data
 
     def post_multipart(
         self,
@@ -75,7 +80,6 @@ class ClickUp:
         version: str = default_api_version,
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
-        print(f"--- POST {url}")
         response = requests.post(
             url, headers=self.get_headers(version), data=payload, files=files
         )
@@ -90,7 +94,6 @@ class ClickUp:
         token: str = "",
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
-        print(f"--- PUT {url}")
         response = requests.put(
             url, headers=self.get_headers(version, token), json=payload
         )
@@ -199,10 +202,10 @@ class ClickUp:
 
         return self.post(f"folder/{folder}/list", payload)
 
-    @lru_cache
     def get_lists(self, folder: int) -> list:
         return self.get(f"folder/{folder}/list")["lists"]
 
+    @lru_cache
     def get_list(self, list_id: int) -> dict:
         return self.get(f"list/{list_id}")
 
