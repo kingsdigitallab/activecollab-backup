@@ -231,20 +231,32 @@ def import_ac_projects(
                     if task_comment_map is not None:
                         comment_map = comment_map | task_comment_map
                 else:
-                    data = dict(
-                        description="",
-                        assignees=[],
-                        tags=[],
-                        status="Open",
-                        priority=None,
-                        due_date_time=False,
-                        time_estimate=None,
-                        start_date_time=False,
+                    ac_task = dict(
+                        single=dict(
+                            assignee_id=0,
+                            body="",
+                            created_by_id=-1,
+                            due_on=0,
+                            estimate=0,
+                            is_completed=project["is_completed"],
+                            is_important=False,
+                            job_type_id=-1,
+                            name="ActiveCollab project time entries",
+                            start_on=0,
+                        ),
+                        comments=[],
+                        subscribers=[],
+                        subtasks=[],
+                        task_list=dict(name="inbox"),
+                        tracked_time=1,
                     )
-                    task = clickup.get_or_create_task(
+                    import_ac_task(
+                        clickup,
                         task_list_id,
-                        "ActiveCollab project time entries",
-                        json.dumps(data),
+                        ac_task,
+                        members,
+                        hourly_rates,
+                        pt["rate"],
                     )
 
                 for record in tqdm(
@@ -442,17 +454,21 @@ def prepare_task_data(
             )
             prepared_data[ln]["tasks"].append(task)
 
-        prepared_data[ln]["tasks"].append(
-            {
-                "id": None,
-                "time_records": list(
-                    filter(
-                        lambda x: x["task_id"] == None and x["list_name"] == ln,
-                        prepared_time_records,
-                    )
-                ),
-            }
+        time_records_without_task = {
+            "id": None,
+            "time_records": list(
+                filter(
+                    lambda x: x["task_id"] == None and x["list_name"] == ln,
+                    prepared_time_records,
+                )
+            ),
+        }
+        time_records_without_task["rate"] = (
+            time_records_without_task["time_records"][0]["rate"]
+            if len(time_records_without_task["time_records"])
+            else -1
         )
+        prepared_data[ln]["tasks"].append(time_records_without_task)
 
     with open("prepared_data.json", "w") as f:
         json.dump(prepared_data, f)
