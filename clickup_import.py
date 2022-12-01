@@ -484,13 +484,14 @@ def prepare_time_records(
     for record in records:
         job_type_id = record["job_type_id"]
         job_type = job_types[job_type_id]["name"]
-        hourly_rate = round(hourly_rates[str(job_type_id)])
+        hourly_rate = hourly_rates[str(job_type_id)]
+        rounded_hourly_rate = round(hourly_rate)
 
-        name = hourly_rate
+        name = rounded_hourly_rate
         if job_type == "pre-project":
             name = job_type
 
-        if hourly_rate > 0:
+        if rounded_hourly_rate > 0:
             name = "funded"
 
         time_records.append(
@@ -498,7 +499,7 @@ def prepare_time_records(
                 name=name,
                 list_name=f"{list_name} {name}",
                 billable_status=record["billable_status"],
-                rate=hourly_rate,
+                rate=round(hourly_rate, 2) if rounded_hourly_rate > 0 else 0,
                 value=round(record["value"] * 60 * 60 * 1000, 2),
                 ts=record["record_date"] * 1000,
                 summary=record["summary"],
@@ -562,9 +563,11 @@ def import_ac_task(
     tags = get_task_tags(name)
     status = get_task_status(ac_task)
 
+    rate_field_id = "83c64fc3-773b-4006-bc0d-ab26c930efbd"
+
     custom_fields = [
         # rate
-        dict(id="83c64fc3-773b-4006-bc0d-ab26c930efbd", value=rate),
+        dict(id=rate_field_id, value=rate),
         # spend
         dict(id="b05c5fb3-d3b6-4cd4-bf37-e3142666f051", value=0),
     ]
@@ -595,6 +598,8 @@ def import_ac_task(
         token = member["token"]
 
     task = clickup.get_or_create_task(task_list_id, name, json.dumps(data), token)
+    if name.lower() == "check project status":
+        clickup.set_custom_field(task["id"], rate_field_id, rate)
 
     data = dict()
 
