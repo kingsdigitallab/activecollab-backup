@@ -112,3 +112,6 @@ env/
 
 # Local test environment:
 backups/
+
+prepared_*.json
+clickup_import.json
