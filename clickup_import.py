@@ -556,7 +556,7 @@ def import_ac_task(
     name = single["name"]
 
     job_type_id = str(single["job_type_id"])
-    rate = time_rate if time_rate > 0 else job_types.get(job_type_id, 0)
+    rate = time_rate if time_rate >= 0 else job_types.get(job_type_id, 0)
     if rate < 1:
         rate = 0
 
