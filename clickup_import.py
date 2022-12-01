@@ -250,7 +250,7 @@ def import_ac_projects(
                         task_list=dict(name="inbox"),
                         tracked_time=1,
                     )
-                    import_ac_task(
+                    task, _ = import_ac_task(
                         clickup,
                         task_list_id,
                         ac_task,
