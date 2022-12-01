@@ -1,3 +1,5 @@
 markdownify
 simplejson
 requests[security]
+python-json-logger
+tqdm

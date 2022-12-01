@@ -1,32 +1,39 @@
 import json
 import locale
+import logging
 import os
 import re
-from collections import defaultdict
 from datetime import datetime
 from glob import glob
-from pprint import pprint
 from time import sleep
 from typing import Optional
 
 from markdownify import markdownify
+from pythonjsonlogger import jsonlogger
+from tqdm import tqdm
 
 from clickup import ClickUp
 
 locale.setlocale(locale.LC_ALL, "en_GB.UTF-8")
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(filename="clickup_import.json", mode="w")
+handler.setFormatter(jsonlogger.JsonFormatter())
+logger.addHandler(handler)
+
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
-    print("Importing AC labels")
+    logger.info("Importing AC labels")
 
     with open(path, "r") as f:
         ac_labels = json.load(f)
 
     spaces = {}
 
-    for label in ac_labels:
+    for label in tqdm(ac_labels, desc="Labels"):
         space = clickup.get_or_create_space(label["name"])
-        print(f"- {space['name']}")
+        logger.info(f"- {space['name']}")
 
         spaces[label["id"]] = space
 
@@ -36,14 +43,12 @@ def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
 def get_members(
     clickup: ClickUp, path: str = "data/users.json", tokens: dict = {}
 ) -> dict:
-    print("Get members")
-
     with open(path, "r") as f:
         ac_users = json.load(f)
 
     members = {}
 
-    for user in ac_users:
+    for user in tqdm(ac_users, desc="Members"):
         id = user["id"]
         if member := clickup.get_member(user["email"]):
             members[id] = member
@@ -53,18 +58,12 @@ def get_members(
 
 
 def import_ac_attachments(
-    clickup: ClickUp,
-    spaces: dict,
-    tasks: dict,
-    comment_map: dict,
-    folders: dict,
-    lists: dict,
-    path: str = "data",
+    clickup: ClickUp, tasks: dict, comment_map: dict, folders: dict, path: str = "data"
 ) -> None:
-    print("Importing AC Attachments")
+    logger.info("Importing AC Attachments")
 
     projects_json = glob((os.path.join(path, "attachments", "*.json")))
-    for project_json in projects_json:
+    for project_json in tqdm(projects_json, desc="Attachments"):
         with open(project_json) as f:
             attachments = json.load(f)
 
@@ -115,7 +114,7 @@ def import_ac_attachments(
 def import_ac_projects(
     clickup: ClickUp, spaces: dict, members: dict, path: str = "data"
 ) -> tuple:
-    print("Importing AC projects")
+    logger.info("Importing AC projects")
 
     with open(os.path.join(path, "projects.json"), "r") as f:
         ac_projects = json.load(f)
@@ -134,7 +133,7 @@ def import_ac_projects(
     tasks = {}
     comment_map = {}
 
-    for project in ac_projects:
+    for project in tqdm(ac_projects, desc="Projects", position=0):
         project_path = os.path.join(path, "projects", str(project["id"]))
 
         space = spaces[project["label_id"]]["id"]
@@ -142,7 +141,7 @@ def import_ac_projects(
         folder = clickup.get_or_create_folder(space, project["name"])
         folders[project["id"]] = folder
         folder_name = folder["name"]
-        print(f"- {folder_name}")
+        logger.info(f"- {folder_name}")
 
         acronym = re.split(r"[\[\(:;]", folder_name)[0].strip()
 
@@ -152,7 +151,7 @@ def import_ac_projects(
         )
         lists[project["id"]] = task_list
 
-        print("-- Import notes")
+        logger.info("-- Import notes")
         doc = clickup.get_or_create_doc(task_list["id"], "Documents")
         page = import_ac_note(clickup, doc["id"], "About", project["body"])
         docs[project["id"]] = doc
@@ -162,7 +161,7 @@ def import_ac_projects(
         with open(os.path.join(project_path, "notes.json")) as f:
             project_notes = json.load(f)
 
-        for note in project_notes:
+        for note in tqdm(project_notes, desc="Notes", position=1, leave=False):
             body = f"Originally created by {note['created_by_name']}"
             body = f"{body} on {get_date(note['created_on'])}"
             body = f"{body}\n\n---\n\n{note['body_plain_text']}"
@@ -180,12 +179,12 @@ def import_ac_projects(
             project_tasks = json.load(f)
 
         # import tasks
-        print("-- Import tasks")
+        logger.info("-- Import tasks")
         task_data = prepare_task_data(
             acronym, project_tasks, time_records, job_types, hourly_rates
         )
 
-        for list_name in task_data.keys():
+        for list_name in tqdm(task_data.keys(), desc="Lists", position=1, leave=False):
             template = "t-212487909"
             if "pre-project" in list_name:
                 template = "t-212487803"
@@ -202,9 +201,11 @@ def import_ac_projects(
 
             task_list_id = task_list["id"]
 
-            for pt in task_data[list_name]["tasks"]:
+            for pt in tqdm(
+                task_data[list_name]["tasks"], desc="Tasks", position=2, leave=False
+            ):
                 ac_task_id = pt["id"]
-                print(f"--- Importing AC task {ac_task_id}")
+                logger.debug(f"--- Importing AC task {ac_task_id}")
 
                 if ac_task_id:
                     if pt["is_completed"]:
@@ -246,7 +247,9 @@ def import_ac_projects(
                         json.dumps(data),
                     )
 
-                for record in pt["time_records"]:
+                for record in tqdm(
+                    pt["time_records"], desc="Time", position=3, leave=False
+                ):
                     data = dict(
                         description=record["summary"],
                         start=record["ts"],
@@ -276,7 +279,7 @@ def import_project_details(
     task_budget = None
 
     if companies := list(filter(lambda x: x["id"] == project["company_id"], companies)):
-        print("-- Import project details")
+        logger.info("-- Import project details")
         details = {"Partner organisation(s)": "King's College, London"}
         faculty, department = companies[0]["name"].split(":")
         details["Faculty"] = faculty.strip()
@@ -685,17 +688,11 @@ if __name__ == "__main__":
     )
 
     spaces = import_ac_labels(clickup)
-    print()
 
     members = get_members(clickup, tokens=secrets["api_tokens_v2"])
-    print()
 
     folders, lists, docs, pages, tasks, comment_map = import_ac_projects(
         clickup, spaces, members
     )
-    print()
 
-    attachments = import_ac_attachments(
-        clickup, spaces, tasks, comment_map, folders, lists
-    )
-    print()
+    attachments = import_ac_attachments(clickup, tasks, comment_map, folders)

@@ -1,10 +1,12 @@
 import json
+import logging
 from functools import lru_cache
-from pprint import pprint
 
 import requests
 
 default_api_version = "v2"
+
+logger = logging.getLogger()
 
 
 class ClickUp:
@@ -29,7 +31,22 @@ class ClickUp:
         headers = self.get_headers(version)
 
         response = requests.get(url, headers=headers, params=params)
-        return response.json()
+
+        return self._handle_response(response, url, params)
+
+    def _handle_response(
+        self, response, url: str, data: dict, files: dict = {}
+    ) -> dict:
+        response_data = response.json()
+
+        if not response.ok or "ECODE" in response_data:
+            log_data = dict(url=url, payload=data, response=response_data)
+            if files:
+                log_data["files"] = files
+
+            logger.error(log_data)
+
+        return response_data
 
     def get_api_url(self, version: str = default_api_version) -> str:
         return self.api_urls.get(version, self.api_urls["v2"])
@@ -63,14 +80,8 @@ class ClickUp:
         response = requests.post(
             url, headers=self.get_headers(version, token), json=payload
         )
-        data = response.json()
 
-        if "ECODE" in data:
-            pprint(url)
-            pprint(payload)
-            pprint(data)
-
-        return data
+        return self._handle_response(response, url, payload)
 
     def post_multipart(
         self,
@@ -84,7 +95,7 @@ class ClickUp:
             url, headers=self.get_headers(version), data=payload, files=files
         )
 
-        return response.json()
+        return self._handle_response(response, url, payload, files)
 
     def put(
         self,
@@ -97,7 +108,8 @@ class ClickUp:
         response = requests.put(
             url, headers=self.get_headers(version, token), json=payload
         )
-        return response.json()
+
+        return self._handle_response(response, url, payload)
 
     @lru_cache
     def get_team(self):
@@ -141,6 +153,7 @@ class ClickUp:
                 "portfolios": {"enabled": True},
             },
         }
+
         return self.post(f"team/{self.team_id}/space", payload)
 
     @lru_cache
@@ -155,6 +168,7 @@ class ClickUp:
                 return folder[0]
 
         payload = dict(name=name)
+
         return self.post(f"space/{space}/folder", payload)
 
     @lru_cache
@@ -169,6 +183,7 @@ class ClickUp:
                 return doc[0]
 
         payload = dict(name=name, type="doc", parent=dict(id=parent_id, type=5))
+
         return self.post(f"list/{parent_id}/view", payload)["view"]
 
     @lru_cache
@@ -184,11 +199,13 @@ class ClickUp:
                 return page[0]
 
         payload = {"name": name, "content": body}
+
         return self.post(f"docs/v1/view/{doc}/page", payload, "v1")
 
     @lru_cache
     def get_pages(self, doc: int) -> list:
         pages = self.get(f"docs/v1/view/{doc}/page", version="v1")
+
         return pages["pages"]
 
     @lru_cache
@@ -271,26 +288,23 @@ class ClickUp:
         self, doc: dict, page: dict, name: str, file_path: str
     ):
         doc_id = doc["id"]
-        page_id = page["id"]
         with open(file_path, "rb") as file:
             files = {
                 "attachment": (name, file),
             }
             payload = {"parent": doc_id}
-            print(f"Uploading {name} to document {doc_id}")
+            logger.info(f"Uploading {name} to document {doc_id}")
 
-            uploaded_file = self.post_multipart(
+            return self.post_multipart(
                 f"attachment", payload, files, version="v1_attach"
             )
-
-            return
 
     # No need to cache this!
     def upload_attachment_to_task(self, task: int, name: str, file_path: str):
         with open(file_path, "rb") as file:
             files = {"attachment": (name, file)}
             payload = {"filename": name}
-            print(f"Uploading {name} to task {task}")
+            logger.info(f"Uploading {name} to task {task}")
             return self.post_multipart(f"task/{task}/attachment", payload, files)
 
     # no need to cache
@@ -304,6 +318,7 @@ class ClickUp:
                 return comment[0]
 
         payload = dict(comment_text=text)
+
         return self.post(f"task/{task}/comment", payload=payload, token=token)
 
     @lru_cache
