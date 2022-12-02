@@ -12,7 +12,7 @@ import activecollab as ac
 # Set your variables here:
 # ############################################
 
-BACKUP_DIR = "/data"
+BACKUP_DIR = "/data/prod/ac_data"
 
 
 # ############################################
