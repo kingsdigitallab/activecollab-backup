@@ -112,12 +112,13 @@ def daily():
 
         # Get time records
         page = 1
-        time_records = []
+        time_records = dict(time_records=[], related=[])
         while tr := ac.get("projects/{0}/time-records?page={1}".format(pid, page)):
             if not tr["time_records"]:
                 break
 
-            time_records.extend(tr)
+            time_records["time_records"].extend(tr["time_records"])
+            time_records["related"].extend(tr["related"])
             page += 1
 
         save_file(time_records, os.path.join(project_dir, "time-records.json"))
