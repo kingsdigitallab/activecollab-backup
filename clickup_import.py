@@ -1,3 +1,4 @@
+from functools import lru_cache
 import json
 import locale
 import logging
@@ -46,10 +47,11 @@ def get_members(
     with open(path, "r") as f:
         ac_users = json.load(f)
 
-    members = {}
+    members = dict(ac=ac_users)
 
     for user in tqdm(ac_users, desc="Members"):
         id = user["id"]
+        members[f"ac_{id}"] = user
         if member := clickup.get_member(user["email"]):
             members[id] = member
             members[id]["token"] = tokens.get(user["email"], tokens.get("default"))
@@ -105,7 +107,7 @@ def import_ac_attachments(
 
                 data = {}
                 task = clickup.get_or_create_task(
-                    task_list["id"], "AC Imported Attachments", json.dumps(data)
+                    task_list["id"], "ActiveCollab attachments", json.dumps(data)
                 )
                 clickup.upload_attachment_to_task(task["id"], a_name, file_path)
                 continue
@@ -267,7 +269,9 @@ def import_ac_projects(
                         start=record["ts"],
                         billable=record["billable_status"] == 1,
                         duration=record["value"],
-                        assignee=members.get(record["created_by_id"])["user"]["id"],
+                        assignee=get_assignee(members, record["created_by_id"])["user"][
+                            "id"
+                        ],
                         tid=task["id"],
                         tags=[
                             dict(name="activecollab"),
@@ -512,7 +516,7 @@ def prepare_time_records(
         )
 
     time_records = sorted(time_records, key=lambda x: x["rate"])
-    rates = list(set([tr["rate"] for tr in time_records]))
+    rates = list(set([0, *[tr["rate"] for tr in time_records]]))
     time_records = [
         {
             **tr,
@@ -568,8 +572,8 @@ def import_ac_task(
     custom_fields = [
         # rate
         dict(id=rate_field_id, value=rate),
-        # spend
-        dict(id="b05c5fb3-d3b6-4cd4-bf37-e3142666f051", value=0),
+        # spend to date
+        dict(id="908f88f1-677a-4ee9-a814-1c6d0fff1166", value=0),
     ]
 
     data = dict(
@@ -584,7 +588,7 @@ def import_ac_task(
         custom_fields=custom_fields,
     )
 
-    if member := get_assignee(members, single):
+    if member := get_assignee(members, single["assignee_id"]):
         data["assignees"] = [member["user"]["id"]]
 
     if due_date := single["due_on"]:
@@ -604,12 +608,13 @@ def import_ac_task(
     data = dict()
 
     if subscribers := ac_task["subscribers"]:
-        data["followers"] = dict(
-            add=[
-                members[sub]["user"]["id"] if members[sub] else None
-                for sub in subscribers
-            ]
-        )
+        followers = []
+        for sub in subscribers:
+            if member := members.get(sub):
+                followers.append(member["user"]["id"])
+
+        if followers:
+            data["followers"] = dict(add=followers)
 
     task = clickup.update_task(task["id"], data)
 
@@ -620,7 +625,7 @@ def import_ac_task(
             status="Closed" if subtask["is_completed"] else status,
         )
 
-        if member := get_assignee(members, subtask):
+        if member := get_assignee(members, subtask["assignee_id"]):
             data["assignees"] = [member["user"]["id"]]
 
         token = None
@@ -689,11 +694,23 @@ def get_task_status(ac_task: dict) -> str:
     return "Open"
 
 
-def get_assignee(members: dict, ac_task: dict) -> Optional[dict]:
-    if ac_task["assignee_id"] == 212:
+@lru_cache
+def get_assignee(members: dict, ac_user_id: int) -> Optional[dict]:
+    if ac_user_id == 0:
+        return None
+
+    # fdp
+    if ac_user_id == 212:
         return members.get(264)
 
-    return members.get(ac_task["assignee_id"])
+    if ac_user_id not in members:
+        missing_id = f"ac_{ac_user_id}"
+        logger.warning(
+            f"User {ac_user_id}: {members[missing_id]['display_name']} not in ClickUp"
+        )
+        return members.get(36)
+
+    return members.get(ac_user_id)
 
 
 def html_to_markdown(html: str) -> str:
