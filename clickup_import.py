@@ -1,4 +1,3 @@
-from functools import lru_cache
 import json
 import locale
 import logging
@@ -377,8 +376,9 @@ def import_project_details(
         dict(id="6e5a4048-e1ee-4ed8-b4b6-ffb54675fb5a", value=spend),
     ]
 
+    expenses_str = "\n".join(expenses)
     data = dict(
-        markdown_description=f"## Expenses\n{'<br>'.join(expenses)}",
+        markdown_description=f"## Expenses\n{expenses_str}",
         assignees=[],
         tags=["_meta", "budget"],
         status="Open",
@@ -694,7 +694,6 @@ def get_task_status(ac_task: dict) -> str:
     return "Open"
 
 
-@lru_cache
 def get_assignee(members: dict, ac_user_id: int) -> Optional[dict]:
     if ac_user_id == 0:
         return None
@@ -714,7 +713,7 @@ def get_assignee(members: dict, ac_user_id: int) -> Optional[dict]:
 
 
 def html_to_markdown(html: str) -> str:
-    return markdownify(html, heading_style="ATX")
+    return markdownify(html, escape_codeblocks=True, heading_style="ATX")
 
 
 if __name__ == "__main__":
