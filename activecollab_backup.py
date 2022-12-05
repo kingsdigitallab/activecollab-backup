@@ -12,7 +12,9 @@ import activecollab as ac
 # Set your variables here:
 # ############################################
 
-BACKUP_DIR = "/data/prod/ac_data"
+BACKUP_DIR = (
+    "/Volumes/machina/developer/github.com/kingsdigitallab/activecollab-backup/data"
+)
 
 
 # ############################################
@@ -67,7 +69,7 @@ def daily():
     save_file(companies, "companies.json")
 
     # Get Users
-    users = ac.get("users")
+    users = ac.get("users/all")
     save_file(users, "users.json")
 
     # Get Trash
@@ -111,15 +113,18 @@ def daily():
         save_file(expenses, os.path.join(project_dir, "expenses.json"))
 
         # Get time records
-        page = 1
-        time_records = dict(time_records=[], related=[])
-        while tr := ac.get("projects/{0}/time-records?page={1}".format(pid, page)):
-            if not tr["time_records"]:
+        page_number = 1
+        time_records = dict(time_records=[], related=dict(Project=[], Task=[]))
+        while page := ac.get(
+            "projects/{0}/time-records?page_number={1}".format(pid, page_number)
+        ):
+            if not page["time_records"]:
                 break
 
-            time_records["time_records"].extend(tr["time_records"])
-            time_records["related"].extend(tr["related"])
-            page += 1
+            time_records["time_records"].extend(page["time_records"])
+            time_records["related"]["Project"] = page["related"]["Project"]
+            time_records["related"]["Task"].extend(page["related"]["Task"])
+            page_number += 1
 
         save_file(time_records, os.path.join(project_dir, "time-records.json"))
 
