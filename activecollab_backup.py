@@ -1,12 +1,20 @@
 #!/usr/bin/env python
 
+import logging
 import os
 import time
 
 import simplejson
+from pythonjsonlogger import jsonlogger
 from tqdm import tqdm
 
 import activecollab as ac
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(filename="activecollab_backup.json", mode="w")
+handler.setFormatter(jsonlogger.JsonFormatter())
+logger.addHandler(handler)
 
 # ############################################
 # Set your variables here:
@@ -115,11 +123,15 @@ def daily():
         # Get time records
         page_number = 1
         time_records = dict(time_records=[], related=dict(Project=[], Task=[]))
-        while page := ac.get(
-            "projects/{0}/time-records?page_number={1}".format(pid, page_number)
-        ):
+        while page := ac.get(f"projects/{pid}/time-records?page={page_number}"):
             if not page["time_records"]:
                 break
+
+            logger.debug(
+                dict(
+                    project=pid, page_number=page_number, size=len(page["time_records"])
+                )
+            )
 
             time_records["time_records"].extend(page["time_records"])
             time_records["related"]["Project"] = page["related"]["Project"]
