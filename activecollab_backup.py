@@ -21,7 +21,7 @@ logger.addHandler(handler)
 # ############################################
 
 BACKUP_DIR = (
-    "/Volumes/machina/developer/github.com/kingsdigitallab/activecollab-backup/data"
+    "/data/prod/ac_data"
 )
 
 
@@ -132,11 +132,13 @@ def daily():
                     project=pid, page_number=page_number, size=len(page["time_records"])
                 )
             )
-
-            time_records["time_records"].extend(page["time_records"])
-            time_records["related"]["Project"] = page["related"]["Project"]
-            time_records["related"]["Task"].extend(page["related"]["Task"])
-            page_number += 1
+            if "time_records" in page and "Project" in page["related"] and "Task" in page["related"]:
+                time_records["time_records"].extend(page["time_records"])
+                time_records["related"]["Project"] = page["related"]["Project"]
+                time_records["related"]["Task"].extend(page["related"]["Task"])
+                page_number += 1
+            else:
+                break
 
         save_file(time_records, os.path.join(project_dir, "time-records.json"))
 
