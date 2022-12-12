@@ -643,7 +643,7 @@ def import_ac_task(
 
         text = comment["body_plain_text"]
         if not token:
-            text = f"Originally posted by {comment['created_by_name']}"
+            text = f"Originally posted by {comment['created_by_name']}\n{text}"
 
         task_comment_map[comment["id"]] = comment["parent_id"]
         clickup.get_or_create_comment(task["id"], text, token)
