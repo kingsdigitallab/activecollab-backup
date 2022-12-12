@@ -19,8 +19,10 @@ def get(api_path, params=None):
     r = requests.get('{0}{1}'.format(
         AC_BASE_URL, api_path), params=simplejson.dumps(params),
         headers=AC_HEADERS)
-
-    return r.json()
+    try:
+        return r.json()
+    except:
+        return None
 
 def get_nojson(api_path, params=None):
     r = requests.get('{0}{1}'.format(

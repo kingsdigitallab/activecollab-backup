@@ -241,7 +241,8 @@ def daily():
 
         # Get time records
         time_records = ac.get("projects/{0}/time-records".format(pid))
-        save_file(time_records, os.path.join(project_dir, "time-records.json"))
+        if time_records:
+            save_file(time_records, os.path.join(project_dir, "time-records.json"))
 
         # Get Project Notes
         notes = ac.get("projects/{0}/notes".format(pid))
