@@ -290,7 +290,7 @@ def import_ac_projects(
                     resp = clickup.create_time_entry(data)
 
         if limit_projects:
-            limit_projects_resume.remove(str['project_id'])
+            limit_projects_resume.remove(str(project["id"]))
             print("To resume: -l {0}".format(",".join(limit_projects_resume)))
 
     for project in tqdm(archived_projects, desc="Projects", position=0):
@@ -441,7 +441,7 @@ def import_ac_projects(
                     resp = clickup.create_time_entry(data)
 
         if limit_projects:
-            limit_projects_resume.remove(str['project_id'])
+            limit_projects_resume.remove(str(project["id"]))
             print("To resume: -l {0}".format(",".join(limit_projects_resume)))
 
     return folders, lists, docs, pages, tasks, comment_map
