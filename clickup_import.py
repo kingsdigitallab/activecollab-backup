@@ -295,7 +295,7 @@ def import_ac_projects(
                         tid=task["id"],
                         tags=[
                             dict(name="activecollab"),
-                            dict(name=ac_user_initials[record["created_by_id"]])),
+                            dict(name=ac_user_initials[record["created_by_id"]]),
                             dict(name=record["tag"]),
                         ],
                     )
@@ -448,7 +448,7 @@ def import_ac_projects(
                         tid=task["id"],
                         tags=[
                             dict(name="activecollab"),
-                            dict(name="ac_uid_{0}".format(record["created_by_id"])),
+                            dict(name=ac_user_initials[record["created_by_id"]]),
                             dict(name=record["tag"]),
                         ],
                     )
