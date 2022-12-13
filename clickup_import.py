@@ -611,7 +611,7 @@ def prepare_task_data(
         json.dump(prepared_tasks, f)
 
     list_names = set([tr["list_name"] for tr in prepared_time_records])
-    if not len list_names:
+    if not len(list_names):
         list_names = set([pt["list_name"] for pt in prepared_tasks])
 
     prepared_data = {}
