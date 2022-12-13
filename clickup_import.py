@@ -228,22 +228,24 @@ def import_ac_projects(
                         )
                     else:
                         task_path = os.path.join(project_path, "tasks", str(ac_task_id))
+                    try:
+                        with open(os.path.join(task_path, "tasks.json"), "r") as f:
+                            ac_task = json.load(f)
 
-                    with open(os.path.join(task_path, "tasks.json"), "r") as f:
-                        ac_task = json.load(f)
+                        task, task_comment_map = import_ac_task(
+                            clickup,
+                            task_list_id,
+                            ac_task,
+                            members,
+                            hourly_rates,
+                            pt["rate"],
+                        )
+                        tasks[ac_task["single"]["id"]] = task
 
-                    task, task_comment_map = import_ac_task(
-                        clickup,
-                        task_list_id,
-                        ac_task,
-                        members,
-                        hourly_rates,
-                        pt["rate"],
-                    )
-                    tasks[ac_task["single"]["id"]] = task
-
-                    if task_comment_map is not None:
-                        comment_map = comment_map | task_comment_map
+                        if task_comment_map is not None:
+                            comment_map = comment_map | task_comment_map
+                    except:
+                        continue
                 else:
                     ac_task = dict(
                         single=dict(
