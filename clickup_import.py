@@ -26,7 +26,7 @@ logger.addHandler(handler)
 limit_projects = False
 import_attachments = True
 limit_projects_resume = []
-
+ac_user_initials = {}
 
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
@@ -51,6 +51,9 @@ def get_members(
 ) -> dict:
     with open(path, "r") as f:
         ac_users = json.load(f)
+
+        for user in ac_users:
+            ac_user_initials[user["id"]] = user["short_display_name"]
 
     members = dict(ac=ac_users)
 
@@ -292,7 +295,7 @@ def import_ac_projects(
                         tid=task["id"],
                         tags=[
                             dict(name="activecollab"),
-                            dict(name="ac_uid_{0}".format(record["created_by_id"])),
+                            dict(name=ac_user_initials[record["created_by_id"]])),
                             dict(name=record["tag"]),
                         ],
                     )
