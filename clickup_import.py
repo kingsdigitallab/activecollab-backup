@@ -602,18 +602,17 @@ def prepare_task_data(
         else:
             if len(prepared_time_records):
                 pt["list_names"].append(prepared_time_records[-1]["list_name"])
-            else: 
-                # We have no time records, thus no list names!
-                pt["list_names"].append(project["name"])
 
         pt["list_names"] = list(set(pt["list_names"]))
-
+        
         prepared_tasks.append(pt)
 
     with open("prepared_tasks.json", "w") as f:
         json.dump(prepared_tasks, f)
 
     list_names = set([tr["list_name"] for tr in prepared_time_records])
+    if not len list_names:
+        list_names = set([pt["list_name"] for pt in prepared_tasks])
 
     prepared_data = {}
 
