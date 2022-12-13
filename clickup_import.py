@@ -188,7 +188,7 @@ def import_ac_projects(
         # import tasks
         logger.info("-- Import tasks")
         task_data = prepare_task_data(
-            acronym, project_tasks, time_records, job_types, hourly_rates
+            acronym, project_tasks, time_records, job_types, hourly_rates, project
         )
 
         for list_name in tqdm(task_data.keys(), desc="Lists", position=1, leave=False):
@@ -415,10 +415,10 @@ def import_ac_note(clickup: ClickUp, doc: str, name: str, body: str) -> dict:
 
 
 def prepare_task_data(
-    list_name: str, tasks: dict, records: list, job_types: dict, hourly_rates: dict
+    list_name: str, tasks: dict, records: list, job_types: dict, hourly_rates: dict, project: dict
 ) -> dict:
     prepared_time_records = prepare_time_records(
-        list_name, records, job_types, hourly_rates
+        list_name, records, job_types, hourly_rates, project
     )
 
     with open("prepared_time_records.json", "w") as f:
@@ -490,14 +490,14 @@ def prepare_task_data(
 
 
 def prepare_time_records(
-    list_name: str, records: list, job_types: dict, hourly_rates: dict
+    list_name: str, records: list, job_types: dict, hourly_rates: dict, project: dict
 ) -> list:
     records = sorted(records, key=lambda x: x["record_date"])
     time_records = []
     for record in records:
         job_type_id = record["job_type_id"]
         job_type = job_types[job_type_id]["name"]
-        hourly_rate = hourly_rates[str(job_type_id)]
+        hourly_rate = hourly_rates[str(job_type_id)] if project["is_billable"] else 0
         rounded_hourly_rate = round(hourly_rate)
 
         name = rounded_hourly_rate
