@@ -540,7 +540,7 @@ def prepare_time_records(
 
     prepared_time_records = []
     for record in time_records:
-        if record["name"] == 0:
+        if record["name"] == 0 and time_records_with_rate:
             closest = min(
                 time_records_with_rate, key=lambda x: abs(x["ts"] - record["ts"])
             )
