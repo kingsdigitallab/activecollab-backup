@@ -245,6 +245,9 @@ def import_ac_projects(
                         if task_comment_map is not None:
                             comment_map = comment_map | task_comment_map
                     except:
+                        # If we got here, task info was missing. Log for correction:
+                        with open("data.missing", 'a+') as f:
+                            f.write("{0}:{1}".format(project["id"], ac_task_id))
                         continue
                 else:
                     ac_task = dict(
