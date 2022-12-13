@@ -602,6 +602,8 @@ def prepare_task_data(
         else:
             if len(prepared_time_records):
                 pt["list_names"].append(prepared_time_records[-1]["list_name"])
+            else:
+                pt["list_names"].append(project["name"])
 
         pt["list_names"] = list(set(pt["list_names"]))
         
