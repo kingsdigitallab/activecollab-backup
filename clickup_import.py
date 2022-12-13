@@ -366,6 +366,8 @@ def import_project_details(
     with open(os.path.join(project_path, "expenses.json")) as f:
         expenses = json.load(f)["expenses"]
 
+    expenses = []
+    spend = 0
     if expenses:
         spend = sum(map(lambda x: x["value"], expenses))
         expenses = map(
@@ -375,8 +377,6 @@ def import_project_details(
             ),
             expenses,
         )
-    else:
-        expenses = []
 
     custom_fields = [
         # overall budget
