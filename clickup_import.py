@@ -7,6 +7,7 @@ from datetime import datetime
 from glob import glob
 from time import sleep
 from typing import Optional
+import argparse
 
 from markdownify import markdownify
 from pythonjsonlogger import jsonlogger
@@ -21,6 +22,9 @@ logger.setLevel(logging.INFO)
 handler = logging.FileHandler(filename="clickup_import.json", mode="w")
 handler.setFormatter(jsonlogger.JsonFormatter())
 logger.addHandler(handler)
+
+limit_projects = False
+import_attachments = True
 
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
@@ -135,6 +139,8 @@ def import_ac_projects(
     comment_map = {}
 
     for project in tqdm(ac_projects, desc="Projects", position=0):
+        if limit_projects and str(project["id"]) not in limit_projects:
+            continue
         project_path = os.path.join(path, "projects", str(project["id"]))
 
         space = spaces[project["label_id"]]["id"]
@@ -717,6 +723,20 @@ def html_to_markdown(html: str) -> str:
 
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description = "Description for my parser")
+    parser.add_argument("-n", "--noattachments", action='store_true', help = "Don't Import Attachments", required = False)
+    parser.add_argument("-l", "--limit", help = "Limit projects to import (e.g. -l 2,3,4)", required = False, default = "")
+    argument = parser.parse_args()
+
+    if argument.noattachments:
+        import_attachments = False
+        print("Not importing attachments")
+
+    if argument.limit:
+        limit_projects = argument.limit.split(",")
+        print("Importing these projects: {0}".format(limit_projects))
+
     with open("clickup_secrets.json.nogit", "r") as f:
         secrets = json.load(f)
 
@@ -732,4 +752,5 @@ if __name__ == "__main__":
         clickup, spaces, members
     )
 
-    attachments = import_ac_attachments(clickup, tasks, comment_map, folders)
+    if import_attachments:
+        attachments = import_ac_attachments(clickup, tasks, comment_map, folders)
