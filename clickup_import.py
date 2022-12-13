@@ -612,7 +612,7 @@ def prepare_task_data(
 
     list_names = set([tr["list_name"] for tr in prepared_time_records])
     if not len(list_names):
-        list_names = set([pt["list_name"] for pt in prepared_tasks])
+        list_names = set([pt["list_names"][0] for pt in prepared_tasks])
 
     prepared_data = {}
 
