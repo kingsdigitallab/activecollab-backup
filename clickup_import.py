@@ -699,15 +699,18 @@ def prepare_time_records(
 
     prepared_time_records = []
     for record in time_records:
-        if record["name"] == 0 and len(list(time_records_with_rate)):
-            closest = min(
-                time_records_with_rate, key=lambda x: abs(x["ts"] - record["ts"])
-            )
-            record["name"] = closest["name"]
-            record["list_name"] = closest["list_name"]
+        try:
+            if record["name"] == 0 and len(list(time_records_with_rate)):
+                closest = min(
+                    time_records_with_rate, key=lambda x: abs(x["ts"] - record["ts"])
+                )
+                record["name"] = closest["name"]
+                record["list_name"] = closest["list_name"]
 
-        prepared_time_records.append(record)
-
+            prepared_time_records.append(record)
+        except:
+            # At this point, we do nothing!
+            pass
     return prepared_time_records
 
 
