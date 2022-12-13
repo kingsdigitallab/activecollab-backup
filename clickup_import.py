@@ -221,12 +221,12 @@ def import_ac_projects(
                 if ac_task_id:
                     if pt["is_completed"]:
                         task_path = os.path.join(
-                            project_path, "tasks/archived", str(ac_task_id)
+                            project_path, "tasks/archived"
                         )
                     else:
-                        task_path = os.path.join(project_path, "tasks", str(ac_task_id))
+                        task_path = os.path.join(project_path, "tasks")
 
-                    with open(os.path.join(task_path, "tasks.json"), "r") as f:
+                    with open(os.path.join(task_path, "{0}.json".format(str(ac_task_id))), "r") as f:
                         ac_task = json.load(f)
 
                     task, task_comment_map = import_ac_task(
