@@ -908,6 +908,18 @@ if __name__ == "__main__":
         limit_projects_resume = limit_projects.copy()
 
         print("Importing these projects: {0}".format(limit_projects))
+    else:
+        limit_projects_resume = []
+        path = "data"
+        with open(os.path.join(path, "projects.json"), "r") as f:
+            ac_projects = json.load(f)
+            for project in ac_projects:
+                limit_projects_resume.append(project["id"])
+    
+        with open(os.path.join(path, "archived_projects.json"), "r") as f:
+            archived_projects = json.load(f)
+            for project in archived_projects:
+                limit_projects_resume.append(project["id"])
 
     with open("clickup_secrets.json.nogit", "r") as f:
         secrets = json.load(f)
