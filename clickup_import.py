@@ -600,7 +600,8 @@ def prepare_task_data(
             pt["list_names"].append(tr["list_name"])
             pt["time_records"].append(tr)
         else:
-            pt["list_names"].append(prepared_time_records[-1]["list_name"])
+            if len(prepared_time_records):
+                pt["list_names"].append(prepared_time_records[-1]["list_name"])
 
         pt["list_names"] = list(set(pt["list_names"]))
 
