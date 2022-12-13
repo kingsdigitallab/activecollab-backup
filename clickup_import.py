@@ -366,14 +366,17 @@ def import_project_details(
     with open(os.path.join(project_path, "expenses.json")) as f:
         expenses = json.load(f)["expenses"]
 
-    spend = sum(map(lambda x: x["value"], expenses))
-    expenses = map(
-        lambda x: (
-            f"- _{get_date(x['record_date'])}_, "
-            f"{x['summary']}: **{locale.currency(x['value'])}**"
-        ),
-        expenses,
-    )
+    if expenses:
+        spend = sum(map(lambda x: x["value"], expenses))
+        expenses = map(
+            lambda x: (
+                f"- _{get_date(x['record_date'])}_, "
+                f"{x['summary']}: **{locale.currency(x['value'])}**"
+            ),
+            expenses,
+        )
+    else:
+        expenses = []
 
     custom_fields = [
         # overall budget
