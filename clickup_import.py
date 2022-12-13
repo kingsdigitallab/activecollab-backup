@@ -25,6 +25,7 @@ logger.addHandler(handler)
 
 limit_projects = False
 import_attachments = True
+limit_projects_resume = []
 
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
@@ -123,6 +124,9 @@ def import_ac_projects(
 
     with open(os.path.join(path, "projects.json"), "r") as f:
         ac_projects = json.load(f)
+    
+    with open(os.path.join(path, "archived_projects.json"), "r") as f:
+        archived_projects = json.load(f)
 
     with open(os.path.join(path, "companies.json"), "r") as f:
         companies = json.load(f)
@@ -284,6 +288,161 @@ def import_ac_projects(
                         ],
                     )
                     resp = clickup.create_time_entry(data)
+
+        if limit_projects:
+            limit_projects_resume.remove(str['project_id'])
+            print("To resume: -l {0}".format(",".join(limit_projects_resume)))
+
+    for project in tqdm(archived_projects, desc="Projects", position=0):
+        if limit_projects and str(project["id"]) not in limit_projects:
+            continue
+        project_path = os.path.join(path, "projects/archived", str(project["id"]))
+
+        space = spaces[project["label_id"]]["id"]
+
+        folder = clickup.get_or_create_folder(space, project["name"])
+        folders[project["id"]] = folder
+        folder_name = folder["name"]
+        logger.info(f"- {folder_name}")
+
+        acronym = re.split(r"[\[\(:;]", folder_name)[0].strip()
+
+        task_list = clickup.get_or_create_list(folder["id"], "_Metadata")
+        import_project_details(
+            project_path, clickup, task_list["id"], project, acronym, companies
+        )
+        lists[project["id"]] = task_list
+
+        logger.info("-- Import notes")
+        doc = clickup.get_or_create_doc(task_list["id"], "Documents")
+        page = import_ac_note(clickup, doc["id"], "About", project["body"])
+        docs[project["id"]] = doc
+
+        # Import notes/documents!
+        # Important fields are: name, body_plain_text, created_by_id, created_by_name
+        with open(os.path.join(project_path, "notes.json")) as f:
+            project_notes = json.load(f)
+
+        for note in tqdm(project_notes, desc="Notes", position=1, leave=False):
+            body = f"Originally created by {note['created_by_name']}"
+            body = f"{body} on {get_date(note['created_on'])}"
+            body = f"{body}\n\n---\n\n{note['body_plain_text']}"
+
+            page = import_ac_note(clickup, doc["id"], note["name"], body)
+            pages[note["id"]] = page
+
+        with open(os.path.join(project_path, "project.json")) as f:
+            hourly_rates = json.load(f)["hourly_rates"]
+
+        with open(os.path.join(project_path, "time-records.json")) as f:
+            time_records = json.load(f)["time_records"]
+
+        with open(os.path.join(project_path, "tasks.json")) as f:
+            project_tasks = json.load(f)
+
+        # import tasks
+        logger.info("-- Import tasks")
+        task_data = prepare_task_data(
+            acronym, project_tasks, time_records, job_types, hourly_rates, project
+        )
+
+        for list_name in tqdm(task_data.keys(), desc="Lists", position=1, leave=False):
+            template = "t-212487909"
+            if "pre-project" in list_name:
+                template = "t-212487803"
+
+            folder_lists = clickup.get_lists(folder["id"])
+            if found := list(filter(lambda x: x["name"] == list_name, folder_lists)):
+                task_list = found[0]
+            else:
+                task_list = clickup.create_list_from_template(
+                    folder["id"], list_name, template
+                )
+                task_list = clickup.get_list(task_list["id"])
+                sleep(10)
+
+            task_list_id = task_list["id"]
+
+            for pt in tqdm(
+                task_data[list_name]["tasks"], desc="Tasks", position=2, leave=False
+            ):
+                ac_task_id = pt["id"]
+                logger.debug(f"--- Importing AC task {ac_task_id}")
+
+                if ac_task_id:
+                    if pt["is_completed"]:
+                        task_path = os.path.join(
+                            project_path, "tasks/archived", str(ac_task_id)
+                        )
+                    else:
+                        task_path = os.path.join(project_path, "tasks", str(ac_task_id))
+
+                    with open(os.path.join(task_path, "tasks.json"), "r") as f:
+                        ac_task = json.load(f)
+
+                    task, task_comment_map = import_ac_task(
+                        clickup,
+                        task_list_id,
+                        ac_task,
+                        members,
+                        hourly_rates,
+                        pt["rate"],
+                    )
+                    tasks[ac_task["single"]["id"]] = task
+
+                    if task_comment_map is not None:
+                        comment_map = comment_map | task_comment_map
+                else:
+                    ac_task = dict(
+                        single=dict(
+                            assignee_id=0,
+                            body="",
+                            created_by_id=-1,
+                            due_on=0,
+                            estimate=0,
+                            is_completed=project["is_completed"],
+                            is_important=False,
+                            job_type_id=-1,
+                            name="ActiveCollab project time entries",
+                            start_on=0,
+                        ),
+                        comments=[],
+                        subscribers=[],
+                        subtasks=[],
+                        task_list=dict(name="inbox"),
+                        tracked_time=1,
+                    )
+                    task, _ = import_ac_task(
+                        clickup,
+                        task_list_id,
+                        ac_task,
+                        members,
+                        hourly_rates,
+                        pt["rate"],
+                    )
+
+                for record in tqdm(
+                    pt["time_records"], desc="Time", position=3, leave=False
+                ):
+                    data = dict(
+                        description=record["summary"],
+                        start=record["ts"],
+                        billable=record["billable_status"] == 1,
+                        duration=record["value"],
+                        assignee=get_assignee(members, record["created_by_id"])["user"][
+                            "id"
+                        ],
+                        tid=task["id"],
+                        tags=[
+                            dict(name="activecollab"),
+                            dict(name=record["tag"]),
+                        ],
+                    )
+                    resp = clickup.create_time_entry(data)
+
+        if limit_projects:
+            limit_projects_resume.remove(str['project_id'])
+            print("To resume: -l {0}".format(",".join(limit_projects_resume)))
 
     return folders, lists, docs, pages, tasks, comment_map
 
@@ -738,6 +897,8 @@ if __name__ == "__main__":
 
     if argument.limit:
         limit_projects = argument.limit.split(",")
+        limit_projects_resume = limit_projects.copy()
+
         print("Importing these projects: {0}".format(limit_projects))
 
     with open("clickup_secrets.json.nogit", "r") as f:
