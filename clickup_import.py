@@ -28,6 +28,7 @@ import_attachments = True
 limit_projects_resume = []
 
 
+
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
     logger.info("Importing AC labels")
 
@@ -143,8 +144,10 @@ def import_ac_projects(
     comment_map = {}
 
     for project in tqdm(ac_projects, desc="Projects", position=0):
+
         if limit_projects and str(project["id"]) not in limit_projects:
             continue
+        print("Importing project: {0}".format(str(project["id"])))
         project_path = os.path.join(path, "projects", str(project["id"]))
 
         space = spaces[project["label_id"]]["id"]
@@ -296,6 +299,7 @@ def import_ac_projects(
     for project in tqdm(archived_projects, desc="Projects", position=0):
         if limit_projects and str(project["id"]) not in limit_projects:
             continue
+        print("Importing project: {0}".format(str(project["id"])))
         project_path = os.path.join(path, "projects/archived", str(project["id"]))
 
         space = spaces[project["label_id"]]["id"]
