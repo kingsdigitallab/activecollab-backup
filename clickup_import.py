@@ -389,9 +389,14 @@ def import_ac_projects(
                         )
                     else:
                         task_path = os.path.join(project_path, "tasks")
-
-                    with open(os.path.join(task_path, "{0}.json".format(str(ac_task_id))), "r") as f:
-                        ac_task = json.load(f)
+                    try:
+                        with open(os.path.join(task_path, "{0}.json".format(str(ac_task_id))), "r") as f:
+                            ac_task = json.load(f)
+                    except:
+                        # If we got here, task info was missing. Log for correction:
+                        with open("data.missing", 'a+') as f:
+                            f.write("{0}:{1}".format(project["id"], ac_task_id))
+                        continue
 
                     task, task_comment_map = import_ac_task(
                         clickup,
@@ -531,10 +536,12 @@ def import_project_details(
                     field_value = list(map(lambda x: x["id"], field_options))
                     if key == "Faculty":
                         field_value = field_value[0]
-
-                    clickup.set_custom_field(
-                        task_details["id"], field["id"], field_value
-                    )
+                    try:
+                        clickup.set_custom_field(
+                            task_details["id"], field["id"], field_value
+                        )
+                    except:
+                        pass
 
     with open(os.path.join(project_path, "expenses.json")) as f:
         expenses = json.load(f)["expenses"]
