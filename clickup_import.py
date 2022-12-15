@@ -788,7 +788,7 @@ def import_ac_task(
         custom_fields=custom_fields,
     )
 
-    if member := get_assignee(members, single["assignee_id"]):
+    if member := get_assignee(members, single["assignee_id"], True):
         data["assignees"] = [member["user"]["id"]]
 
     if due_date := single["due_on"]:
@@ -825,7 +825,7 @@ def import_ac_task(
             status="Closed" if subtask["is_completed"] else status,
         )
 
-        if member := get_assignee(members, subtask["assignee_id"]):
+        if member := get_assignee(members, subtask["assignee_id"], True):
             data["assignees"] = [member["user"]["id"]]
 
         token = None
@@ -893,13 +893,15 @@ def get_task_status(ac_task: dict) -> str:
     return "Open"
 
 
-def get_assignee(members: dict, ac_user_id: int) -> Optional[dict]:
+def get_assignee(members: dict, ac_user_id: int, reassign:bool = False) -> Optional[dict]:
     if ac_user_id == 0:
         return None
 
-    # fdp
-    if ac_user_id == 212:
-        return members.get(264)
+    # If we are importing a task, reassign FDP -> SF.
+    # We only do this if we are assigning a task
+    if reassign:
+        if ac_user_id == 212:
+            return members.get(264)
 
     if ac_user_id not in members:
         missing_id = f"ac_{ac_user_id}"
@@ -910,9 +912,9 @@ def get_assignee(members: dict, ac_user_id: int) -> Optional[dict]:
 
     return members.get(ac_user_id)
 
-def get_project_mappings() -> dict:
+def get_project_mappings(mapping_csv:str = 'data/ac_projects.csv') -> dict:
     mappings = {}
-    with open(MAPPING_CSV, newline='') as f:
+    with open(mapping_csv, newline='') as f:
         cf = csv.reader(f)
         header = next(cf)
 
