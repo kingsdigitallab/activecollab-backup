@@ -1,3 +1,4 @@
+import csv
 import json
 import locale
 import logging
@@ -27,6 +28,8 @@ limit_projects = False
 import_attachments = True
 limit_projects_resume = []
 ac_user_initials = {}
+project_mappings = {}
+
 
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
@@ -908,6 +911,22 @@ def get_assignee(members: dict, ac_user_id: int) -> Optional[dict]:
 
     return members.get(ac_user_id)
 
+def get_project_mappings() -> dict:
+    mappings = {}
+    with open(MAPPING_CSV, newline='') as f:
+        cf = csv.reader(f)
+        header = next(cf)
+
+        for row in cf:
+            mappings[row[0]] = {
+                "name": row[1],
+                "import_type": row[9],
+                "clickup_template": row[10],
+                "unbillable_list": row[11] if len(row) > 12 else ''
+            }
+    return mappings
+
+
 
 def html_to_markdown(html: str) -> str:
     return markdownify(html, escape_codeblocks=True, heading_style="ATX")
@@ -944,6 +963,9 @@ if __name__ == "__main__":
 
     with open("clickup_secrets.json.nogit", "r") as f:
         secrets = json.load(f)
+
+    # Generate mapping
+    project_mappings = get_project_mappings()
 
     clickup = ClickUp(
         secrets["team_id"], secrets["api_token_v1"], secrets["api_tokens_v2"]["default"]
