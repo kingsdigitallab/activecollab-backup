@@ -921,7 +921,7 @@ def get_project_mappings(mapping_csv:str = 'data/ac_projects.csv') -> dict:
         for row in cf:
             mappings[row[0]] = {
                 "name": row[1],
-                "import_type": row[9],
+                "import_type": int(row[9]),
                 "clickup_template": row[10],
                 "unbillable_list": row[11] if len(row) > 12 else ''
             }
