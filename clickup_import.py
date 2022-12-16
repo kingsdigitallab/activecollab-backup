@@ -13,6 +13,7 @@ import argparse
 from markdownify import markdownify
 from pythonjsonlogger import jsonlogger
 from tqdm import tqdm
+from pprint import pprint
 
 from clickup import ClickUp
 
@@ -29,7 +30,7 @@ import_attachments = True
 limit_projects_resume = []
 ac_user_initials = {}
 project_mappings = {}
-
+templates_by_name = {}
 
 
 def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
@@ -204,15 +205,24 @@ def import_ac_projects(
             acronym, project_tasks, time_records, job_types, hourly_rates, project
         )
 
-        for list_name in tqdm(task_data.keys(), desc="Lists", position=1, leave=False):
-            template = "t-212487909"
-            if "pre-project" in list_name:
-                template = "t-212487803"
+        for list_name in tqdm(task_d ata.keys(), desc="Lists", position=1, leave=False):
+            #template = "t-212487909"
+            # TODO: logic for this AND repeat below!
+
+            if project_mappings[project["id"]]["import_type"] == 1:
+                template_name = project_mappings[project["id"]]["clickup_template"]
+            elif "pre-project" in list_name:
+                template_name = project_mappings[project["id"]]["unbillable_list"]
+            else:
+                template_name = project_mappings[project["id"]]["billable_list"]
+
+            template = templates_by_name[template_name]
 
             folder_lists = clickup.get_lists(folder["id"])
             if found := list(filter(lambda x: x["name"] == list_name, folder_lists)):
                 task_list = found[0]
             else:
+                      
                 task_list = clickup.create_list_from_template(
                     folder["id"], list_name, template
                 )
@@ -363,9 +373,15 @@ def import_ac_projects(
         )
 
         for list_name in tqdm(task_data.keys(), desc="Lists", position=1, leave=False):
-            template = "t-212487909"
-            if "pre-project" in list_name:
-                template = "t-212487803"
+            
+            if project_mappings[project["id"]]["import_type"] == 1:
+                template_name = project_mappings[project["id"]]["clickup_template"]
+            elif "pre-project" in list_name:
+                template_name = project_mappings[project["id"]]["unbillable_list"]
+            else:
+                template_name = project_mappings[project["id"]]["billable_list"]
+
+            template = templates_by_name[template_name]
 
             folder_lists = clickup.get_lists(folder["id"])
             if found := list(filter(lambda x: x["name"] == list_name, folder_lists)):
@@ -688,13 +704,23 @@ def prepare_time_records(
         hourly_rate = hourly_rates[str(job_type_id)] if project["is_billable"] else 0
         rounded_hourly_rate = round(hourly_rate)
 
-        name = rounded_hourly_rate
-        if job_type == "pre-project":
-            name = job_type
-
-        if rounded_hourly_rate > 0:
-            name = "funded"
-
+        if project_mappings[project["id"]]["import_type"] == 1:
+            # Single project list
+            name = ""
+        elif project_mappings[project["id"]]["import_type"]  == 2:
+            # Pre-Project and single list
+            if job_type == "pre-project" or job_type == "Toggl (for import only)":
+                name = "pre-project"
+            else:
+                name = ""
+        else:
+            if job_type == "pre-project" or job_type == "Toggl (for import only)":
+                name = "pre-project"
+            else:
+                name = rounded_hourly_rate
+                if rounded_hourly_rate > 0:
+                    name = "funded"
+   
         time_records.append(
             dict(
                 name=name,
@@ -711,36 +737,41 @@ def prepare_time_records(
                 created_by_id=record["created_by_id"],
             )
         )
-
+            
     time_records = sorted(time_records, key=lambda x: x["rate"])
-    rates = list(set([0, *[tr["rate"] for tr in time_records]]))
-    time_records = [
-        {
-            **tr,
-            "list_name": f"{tr['list_name']} {rates.index(tr['rate'])}"
-            if rates.index(tr["rate"]) > 1
-            else tr["list_name"],
-        }
-        for tr in time_records
-    ]
 
-    time_records_with_rate = filter(lambda x: x["rate"] > 0, time_records)
+    if project_mappings[project["id"]]["import_type"]  == 3:
 
-    prepared_time_records = []
-    for record in time_records:
-        try:
-            if record["name"] == 0 and len(list(time_records_with_rate)):
-                closest = min(
-                    time_records_with_rate, key=lambda x: abs(x["ts"] - record["ts"])
-                )
-                record["name"] = closest["name"]
-                record["list_name"] = closest["list_name"]
+        rates = list(set([0, *[tr["rate"] for tr in time_records]]))
+        time_records = [
+            {
+                **tr,
+                "list_name": f"{tr['list_name']} {rates.index(tr['rate'])}"
+                if rates.index(tr["rate"]) > 1
+                else tr["list_name"],
+            }
+            for tr in time_records
+        ]
 
-            prepared_time_records.append(record)
-        except:
-            # At this point, we do nothing!
-            pass
-    return prepared_time_records
+        time_records_with_rate = filter(lambda x: x["rate"] > 0, time_records)
+
+        prepared_time_records = []
+        for record in time_records:
+            try:
+                if record["name"] == 0 and len(list(time_records_with_rate)):
+                    closest = min(
+                        time_records_with_rate, key=lambda x: abs(x["ts"] - record["ts"])
+                    )
+                    record["name"] = closest["name"]
+                    record["list_name"] = closest["list_name"]
+
+                prepared_time_records.append(record)
+            except:
+                # At this point, we do nothing!
+                pass
+        return prepared_time_records
+    else:
+        return time_records
 
 
 def import_ac_task(
@@ -924,6 +955,7 @@ def get_project_mappings(mapping_csv:str = 'data/ac_projects.csv') -> dict:
                 "import_type": int(row[9]),
                 "clickup_template": row[10],
                 "unbillable_list": row[11] if len(row) > 12 else ''
+                "billable_list": row[12] if len(row) > 13 else ''
             }
     return mappings
 
@@ -965,12 +997,24 @@ if __name__ == "__main__":
     with open("clickup_secrets.json.nogit", "r") as f:
         secrets = json.load(f)
 
-    # Generate mapping
-    project_mappings = get_project_mappings()
-
     clickup = ClickUp(
         secrets["team_id"], secrets["api_token_v1"], secrets["api_tokens_v2"]["default"]
     )
+
+    # Generate mapping
+    project_mappings = get_project_mappings()
+
+    # Get templates and re-order them into name: id dict
+    templates = clickup.get_templates()
+
+    for x in templates:
+        templates_by_name[x["name"]] = x["id"]
+    
+    # Attach template IDs to mappings
+    # TODO: RSC isn't included in the API response
+
+    for key in project_mappings:
+        project_mappings[key]["clickup_template_id"] = templates_by_name[project_mappings[key]["clickup_template"]]
 
     spaces = import_ac_labels(clickup)
 

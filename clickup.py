@@ -29,7 +29,6 @@ class ClickUp:
     ) -> dict:
         url = f"{self.get_api_url(version)}/{endpoint}"
         headers = self.get_headers(version)
-
         response = requests.get(url, headers=headers, params=params)
 
         return self._handle_response(response, url, params)
@@ -218,6 +217,11 @@ class ClickUp:
         payload = dict(name=name)
 
         return self.post(f"folder/{folder}/list", payload)
+    
+    @lru_cache
+    def get_templates(self) -> list:
+        templates = self.get(f"v1/team/{self.team_id}/templates", version="v1")
+        return templates['subcategory']['templates']
 
     def get_lists(self, folder: int) -> list:
         return self.get(f"folder/{folder}/list")["lists"]
