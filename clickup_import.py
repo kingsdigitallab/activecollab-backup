@@ -1014,7 +1014,8 @@ if __name__ == "__main__":
     # TODO: RSC isn't included in the API response
 
     for key in project_mappings:
-        project_mappings[key]["clickup_template_id"] = templates_by_name[project_mappings[key]["clickup_template"]]
+        if not "Split" in project_mappings[key]["clickup_template"]:
+            project_mappings[key]["clickup_template_id"] = templates_by_name[project_mappings[key]["clickup_template"]]
 
     spaces = import_ac_labels(clickup)
 
