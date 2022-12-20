@@ -950,7 +950,7 @@ def get_project_mappings(mapping_csv:str = 'data/ac_projects.csv') -> dict:
         header = next(cf)
 
         for row in cf:
-            mappings[row[0]] = {
+            mappings[int(row[0])] = {
                 "name": row[1],
                 "import_type": int(row[9]),
                 "clickup_template": row[10],
@@ -1016,6 +1016,7 @@ if __name__ == "__main__":
     for key in project_mappings:
         if not "Split" in project_mappings[key]["clickup_template"]:
             project_mappings[key]["clickup_template_id"] = templates_by_name[project_mappings[key]["clickup_template"]]
+
 
     spaces = import_ac_labels(clickup)
 
