@@ -205,7 +205,7 @@ def import_ac_projects(
             acronym, project_tasks, time_records, job_types, hourly_rates, project
         )
 
-        for list_name in tqdm(task_d ata.keys(), desc="Lists", position=1, leave=False):
+        for list_name in tqdm(task_data.keys(), desc="Lists", position=1, leave=False):
             #template = "t-212487909"
             # TODO: logic for this AND repeat below!
 
