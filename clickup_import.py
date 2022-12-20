@@ -150,6 +150,16 @@ def import_ac_projects(
     tasks = {}
     comment_map = {}
 
+    # Sanity Check
+    for project in ac_projects:
+        if not project['id'] in project_mappings:
+            print("Project not in mappings: {}".format(project['id']))
+            exit()
+    for project in archived_projects:
+        if not project['id'] in project_mappings:
+            print("Project not in mappings: {}".format(project['id']))
+            exit()
+            
     for project in tqdm(ac_projects, desc="Projects", position=0):
 
         if limit_projects and str(project["id"]) not in limit_projects:
