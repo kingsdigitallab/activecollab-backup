@@ -954,7 +954,7 @@ def get_project_mappings(mapping_csv:str = 'data/ac_projects.csv') -> dict:
                 "name": row[1],
                 "import_type": int(row[9]),
                 "clickup_template": row[10],
-                "unbillable_list": row[11] if len(row) > 12 else ''
+                "unbillable_list": row[11] if len(row) > 12 else '',
                 "billable_list": row[12] if len(row) > 13 else ''
             }
     return mappings
