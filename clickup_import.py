@@ -131,8 +131,8 @@ def import_ac_projects(
 ) -> tuple:
     logger.info("Importing AC projects")
 
-with open(os.path.join(path, "projects.json"), "r") as f:
-    ac_projects = json.load(f)
+    with open(os.path.join(path, "projects.json"), "r") as f:
+        ac_projects = json.load(f)
     
     with open(os.path.join(path, "archived_projects.json"), "r") as f:
         archived_projects = json.load(f)
