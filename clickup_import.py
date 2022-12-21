@@ -572,25 +572,21 @@ def import_project_details(
                         )
                     except:
                         pass
+
+    with open(os.path.join(project_path, "expenses.json")) as f:
+        expenses = json.load(f)["expenses"]
+
     expenses = []
     spend = 0
-    try:
-        with open(os.path.join(project_path, "expenses.json")) as f:
-            expenses = json.load(f)["expenses"]
-
-
-        if expenses:
-            spend = sum(map(lambda x: x["value"], expenses))
-            expenses = map(
-                lambda x: (
-                    f"- _{get_date(x['record_date'])}_, "
-                    f"{x['summary']}: **{locale.currency(x['value'])}**"
-                ),
-                expenses,
-            )
-    except:
-        # No expenses file.
-        pass
+    if expenses:
+        spend = sum(map(lambda x: x["value"], expenses))
+        expenses = map(
+            lambda x: (
+                f"- _{get_date(x['record_date'])}_, "
+                f"{x['summary']}: **{locale.currency(x['value'])}**"
+            ),
+            expenses,
+        )
 
     custom_fields = [
         # overall budget
