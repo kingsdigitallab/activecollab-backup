@@ -131,8 +131,8 @@ def import_ac_projects(
 ) -> tuple:
     logger.info("Importing AC projects")
 
-    with open(os.path.join(path, "projects.json"), "r") as f:
-        ac_projects = json.load(f)
+with open(os.path.join(path, "projects.json"), "r") as f:
+    ac_projects = json.load(f)
     
     with open(os.path.join(path, "archived_projects.json"), "r") as f:
         archived_projects = json.load(f)
@@ -401,6 +401,11 @@ def import_ac_projects(
                 task_list = clickup.create_list_from_template(
                     folder["id"], list_name, template
                 )
+                if not "id" in task_list:
+                    print("error with task list, retrying")
+                    sleep(10)
+                    task_list = clickup.create_list_from_template(folder["id"], list_name, template)
+                    sleep(10)
                 task_list = clickup.get_list(task_list["id"])
                 sleep(10)
 
@@ -846,9 +851,9 @@ def import_ac_task(
     task = clickup.get_or_create_task(task_list_id, name, json.dumps(data), token)
     if "id" not in task:
         print("Error: Retrying task...")
-        time.sleep(5)
+        time.sleep(10)
         task = clickup.get_or_create_task(task_list_id, name, json.dumps(data), token)
-        time.sleep(5)
+        time.sleep(10)
 
     if name.lower() == "check project status":
         clickup.set_custom_field(task["id"], rate_field_id, rate)
