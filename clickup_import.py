@@ -9,6 +9,7 @@ from glob import glob
 from time import sleep
 from typing import Optional
 import argparse
+import time
 
 from markdownify import markdownify
 from pythonjsonlogger import jsonlogger
@@ -843,6 +844,12 @@ def import_ac_task(
         token = member["token"]
 
     task = clickup.get_or_create_task(task_list_id, name, json.dumps(data), token)
+    if "id" not in task:
+        print("Error: Retrying task...")
+        time.sleep(5)
+        task = clickup.get_or_create_task(task_list_id, name, json.dumps(data), token)
+        time.sleep(5)
+
     if name.lower() == "check project status":
         clickup.set_custom_field(task["id"], rate_field_id, rate)
 
