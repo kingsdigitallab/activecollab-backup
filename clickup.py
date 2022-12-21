@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import lru_cache
-
+import time
 import requests
 
 default_api_version = "v2"
@@ -80,6 +80,13 @@ class ClickUp:
             url, headers=self.get_headers(version, token), json=payload
         )
 
+        try: 
+            test = response.json()
+        except: 
+            # retry since if we're here, the response was not JSON as expected from the API.
+            time.sleep(10)
+            response = requests.post(url, headers=self.get_headers(version, token), json=payload)
+            time.sleep(10)
         return self._handle_response(response, url, payload)
 
     def post_multipart(
