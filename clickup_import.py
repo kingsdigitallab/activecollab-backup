@@ -406,7 +406,11 @@ with open(os.path.join(path, "projects.json"), "r") as f:
                     sleep(10)
                     task_list = clickup.create_list_from_template(folder["id"], list_name, template)
                     sleep(10)
-                task_list = clickup.get_list(task_list["id"])
+                try:
+                    task_list = clickup.get_list(task_list["id"])
+                except:
+                    pprint(task_list)
+                    exit()
                 sleep(10)
 
             task_list_id = task_list["id"]
