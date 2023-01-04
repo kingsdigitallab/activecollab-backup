@@ -519,9 +519,13 @@ def import_project_details(
     if companies := list(filter(lambda x: x["id"] == project["company_id"], companies)):
         logger.info("-- Import project details")
         details = {"Partner organisation(s)": "King's College, London"}
-        faculty, department = companies[0]["name"].split(":")
-        details["Faculty"] = faculty.strip()
-        details["Department(s)"] = department.strip()
+        try:
+            faculty, department = companies[0]["name"].split(":")
+            details["Faculty"] = faculty.strip()
+            details["Department(s)"] = department.strip()
+        except:
+            details["Faculty"] = ""
+            details["Department(s)"] = companies[0]["name"]  
 
         if faculty == "External":
             details["Partner organisation(s)"] = ""
