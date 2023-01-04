@@ -28,6 +28,8 @@ logger.addHandler(handler)
 
 limit_projects = False
 import_attachments = True
+import_projects = True
+fix_expenses = False
 limit_projects_resume = []
 ac_user_initials = {}
 project_mappings = {}
@@ -50,6 +52,158 @@ def import_ac_labels(clickup: ClickUp, path: str = "data/labels.json") -> dict:
 
     return spaces
 
+
+
+def import_expenses(
+    clickup: ClickUp, members: dict, path: str = "data"
+) -> tuple:
+    logger.info("Importing AC projects")
+
+    with open(os.path.join(path, "projects.json"), "r") as f:
+        ac_projects = json.load(f)
+    
+    with open(os.path.join(path, "archived_projects.json"), "r") as f:
+        archived_projects = json.load(f)
+
+    with open(os.path.join(path, "companies.json"), "r") as f:
+        companies = json.load(f)
+
+    with open(os.path.join(path, "job_types.json"), "r") as f:
+        job_types = json.load(f)
+        job_types = {item["id"]: item for item in job_types}
+
+    spaces = clickup.get_spaces()
+    folders = []
+    budget_tasks = {}
+
+    print('Searching spaces:')
+    for space in tqdm(spaces, desc="Spaces"):
+        space_folders = clickup.get_folders(space['id'])
+        archived_space_folders = clickup.get_folders(space['id'], True)
+        folders.extend(space_folders)
+        folders.extend(archived_space_folders)
+    
+    print('Found {0} folders'.format(len(folders)))
+
+    print('Generating AC folder data')
+
+    for folder in tqdm(folders, "Folders"):
+        acronym = re.split(r"[\[\(:;]", folder['name'])[0].strip()
+        md = clickup.get_or_create_list(folder['id'], '_Metadata')
+        md_tasks = clickup.get_tasks(md['id'])
+        info_task = [task for task in md_tasks if task['name'] == acronym]
+
+        if len(info_task):
+            # Bazinga!
+            task = info_task[0]
+            
+            cf = [field for field in task['custom_fields'] if field['id'] == '1fabc62c-b9b9-42ef-b3f3-0158f2106ae2']
+            if len(cf) and 'value' in cf[0]:
+                # Project was imported from AC and we have a valid AC ID!
+                ac_id = cf[0]['value']
+                try:
+                    budget_task = [task for task in md_tasks if task['name'] == 'Project budget'][0]
+                    budget_tasks[ac_id] = budget_task
+                except:
+                    print('Error: AC Project {0} has no Project budget task!'.format(ac_id))
+      
+    
+    ac_projects_to_fix = [proj for proj in ac_projects if str(proj['id']) in budget_tasks]
+    archived_projects_to_fix = [proj for proj in archived_projects if str(proj['id']) in budget_tasks]
+
+    for project in tqdm(ac_projects_to_fix, desc="Projects", position=0):
+        print("Fixing project: {0}".format(str(project["id"])))
+        project_path = os.path.join(path, "projects", str(project["id"]))
+        budget_task = budget_tasks[str(project['id'])]
+
+        
+        with open(os.path.join(project_path, "expenses.json")) as f:
+            if f:
+                expenses = json.load(f)["expenses"]
+
+        spend = 0
+        if expenses:
+            spend = sum(map(lambda x: x["value"], expenses))
+            expenses = map(
+                lambda x: (
+                    f"- _{get_date(x['record_date'])}_, "
+                    f"{x['summary']}: **{locale.currency(x['value'])}**"
+                ),
+                expenses,
+            )
+
+        custom_fields = [
+            # overall budget
+            dict(id="3dcddcd7-4a5b-4380-95c8-1154a9ce8ff8", value=project["budget"]),
+            # other expenses spend
+            dict(id="6e5a4048-e1ee-4ed8-b4b6-ffb54675fb5a", value=spend),
+        ]
+        
+        expenses_str = "\n".join(expenses)
+        data = dict(
+            markdown_description=f"## Expenses\n{expenses_str}",
+            assignees=[],
+            tags=["_meta", "budget"],
+            status="Open",
+            priority=None,
+            due_date_time=False,
+            time_estimate=None,
+            start_date_time=False,
+        )
+
+        print('Updating ID {0}'.format(budget_task['id']))
+
+        clickup.set_custom_field(budget_task['id'], "3dcddcd7-4a5b-4380-95c8-1154a9ce8ff8", project["budget"])
+        clickup.set_custom_field(budget_task['id'], "6e5a4048-e1ee-4ed8-b4b6-ffb54675fb5a", spend)
+        clickup.update_task(budget_task['id'], data)
+
+    for project in tqdm(archived_projects_to_fix, desc="Archived Projects", position=0):
+        print("Fixing project: {0}".format(str(project["id"])))
+        project_path = os.path.join(path, "projects/archived", str(project["id"]))
+        budget_task = budget_tasks[str(project['id'])]
+
+        
+        with open(os.path.join(project_path, "expenses.json")) as f:
+            if f:
+                expenses = json.load(f)["expenses"]
+
+        spend = 0
+        if expenses:
+            spend = sum(map(lambda x: x["value"], expenses))
+            expenses = map(
+                lambda x: (
+                    f"- _{get_date(x['record_date'])}_, "
+                    f"{x['summary']}: **{locale.currency(x['value'])}**"
+                ),
+                expenses,
+            )
+
+        custom_fields = [
+            # overall budget
+            dict(id="3dcddcd7-4a5b-4380-95c8-1154a9ce8ff8", value=project["budget"]),
+            # other expenses spend
+            dict(id="6e5a4048-e1ee-4ed8-b4b6-ffb54675fb5a", value=spend),
+        ]
+        
+        expenses_str = "\n".join(expenses)
+        data = dict(
+            markdown_description=f"## Expenses\n{expenses_str}",
+            assignees=[],
+            tags=["_meta", "budget"],
+            status="Open",
+            priority=None,
+            due_date_time=False,
+            time_estimate=None,
+            start_date_time=False,
+        )
+
+        print('Updating ID {0}'.format(budget_task['id']))
+
+        clickup.set_custom_field(budget_task['id'], "3dcddcd7-4a5b-4380-95c8-1154a9ce8ff8", project["budget"])
+        clickup.set_custom_field(budget_task['id'], "6e5a4048-e1ee-4ed8-b4b6-ffb54675fb5a", spend)
+        clickup.update_task(budget_task['id'], data)
+
+    return None
 
 def get_members(
     clickup: ClickUp, path: str = "data/users.json", tokens: dict = {}
@@ -992,7 +1146,6 @@ def get_project_mappings(mapping_csv:str = 'data/ac_projects.csv') -> dict:
     return mappings
 
 
-
 def html_to_markdown(html: str) -> str:
     return markdownify(html, escape_codeblocks=True, heading_style="ATX")
 
@@ -1000,6 +1153,7 @@ def html_to_markdown(html: str) -> str:
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description = "Description for my parser")
+    parser.add_argument("-e", "--fixexpenses", action='store_true', help = "Fix expenses", required = False)
     parser.add_argument("-n", "--noattachments", action='store_true', help = "Don't Import Attachments", required = False)
     parser.add_argument("-l", "--limit", help = "Limit projects to import (e.g. -l 2,3,4)", required = False, default = "")
     argument = parser.parse_args()
@@ -1007,6 +1161,11 @@ if __name__ == "__main__":
     if argument.noattachments:
         import_attachments = False
         print("Not importing attachments")
+
+    if argument.fixexpenses:
+        import_projects = False
+        import_attachments = False
+        fix_expenses = True
 
     if argument.limit:
         limit_projects = argument.limit.split(",")
@@ -1042,21 +1201,24 @@ if __name__ == "__main__":
     for x in templates:
         templates_by_name[x["name"]] = x["id"]
     
-    # Attach template IDs to mappings
-    # TODO: RSC isn't included in the API response
 
     for key in project_mappings:
         if not "Split" in project_mappings[key]["clickup_template"]:
             project_mappings[key]["clickup_template_id"] = templates_by_name[project_mappings[key]["clickup_template"]]
 
 
-    spaces = import_ac_labels(clickup)
-
     members = get_members(clickup, tokens=secrets["api_tokens_v2"])
 
-    folders, lists, docs, pages, tasks, comment_map = import_ac_projects(
-        clickup, spaces, members
-    )
+    if import_projects:
+        folders, lists, docs, pages, tasks, comment_map = import_ac_projects(
+            clickup, spaces, members
+        )
+    
+    if fix_expenses:
+        print("Fixing/reimporting expenses")
+        import_expenses(
+            clickup, members
+        )
 
     if import_attachments:
         attachments = import_ac_attachments(clickup, tasks, comment_map, folders)
