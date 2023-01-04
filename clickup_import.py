@@ -115,14 +115,14 @@ def import_expenses(
         print("Fixing project: {0}".format(str(project["id"])))
         project_path = os.path.join(path, "projects", str(project["id"]))
         budget_task = budget_tasks[str(project['id'])]
-        
+
         expenses = []
         if os.path.exists(os.path.join(project_path, "expenses.json")):
             with open(os.path.join(project_path, "expenses.json")) as f:
                 expenses = json.load(f)["expenses"]
 
         spend = 0
-        if len(expenses):
+        if expenses:
             spend = sum(map(lambda x: x["value"], expenses))
             expenses = map(
                 lambda x: (
@@ -131,6 +131,8 @@ def import_expenses(
                 ),
                 expenses,
             )
+        else:
+            expenses = []
 
         custom_fields = [
             # overall budget
@@ -168,7 +170,7 @@ def import_expenses(
                 expenses = json.load(f)["expenses"]
 
         spend = 0
-        if len(expenses):
+        if expenses:
             spend = sum(map(lambda x: x["value"], expenses))
             expenses = map(
                 lambda x: (
@@ -177,6 +179,8 @@ def import_expenses(
                 ),
                 expenses,
             )
+        else:
+            expenses = []
             
 
         custom_fields = [
