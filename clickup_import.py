@@ -1217,7 +1217,7 @@ if __name__ == "__main__":
 
 
     members = get_members(clickup, tokens=secrets["api_tokens_v2"])
-
+    spaces = import_ac_labels(clickup)
     if import_projects:
         folders, lists, docs, pages, tasks, comment_map = import_ac_projects(
             clickup, spaces, members
