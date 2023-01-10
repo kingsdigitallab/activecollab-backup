@@ -232,7 +232,7 @@ def get_members(
 
 
 def import_ac_attachments(
-    clickup: ClickUp, tasks: dict, comment_map: dict, folders: dict, path: str = "data"
+    clickup: ClickUp, path: str = "data"
 ) -> None:
     logger.info("Importing AC Attachments")
 
