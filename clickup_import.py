@@ -288,7 +288,7 @@ def import_ac_attachments(
                 )
 
                 folder = folders_map[str(attachment["project_id"])]
-                task_list = clickup.get_or_create_list(folder["id"], "_Metadata")
+                task_list = clickup.get_or_create_list(int(folder)], "_Metadata")
 
                 data = {}
                 task = clickup.get_or_create_task(
