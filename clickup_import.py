@@ -268,7 +268,8 @@ def import_ac_attachments(
                 folders_map[ac_id] = folder['id']
 
     projects_json = glob((os.path.join(path, "attachments", "*.json")))
-    for project_json in tqdm(projects_json, desc="Attachments"):
+    for project_json in tqdm(projects_json, desc="Projects"):
+        print("Processing {0}".format(project_json))
         with open(project_json) as f:
             attachments = json.load(f)
 
@@ -277,7 +278,7 @@ def import_ac_attachments(
                 a for a in attachments if a["class"] != "GoogleDriveAttachment"
             ]
 
-            for attachment in tqdm(attachments):
+            for attachment in tqdm(attachments, desc="Attachments"):
 
                 a_id = attachment["id"]
                 a_name = attachment["name"]
