@@ -236,6 +236,36 @@ def import_ac_attachments(
 ) -> None:
     logger.info("Importing AC Attachments")
 
+    spaces = clickup.get_spaces()
+    folders = []
+    folders_map = {}
+
+    print('Searching spaces:')
+    for space in tqdm(spaces, desc="Spaces"):
+        space_folders = clickup.get_folders(space['id'])
+        archived_space_folders = clickup.get_folders(space['id'], True)
+        folders.extend(space_folders)
+        folders.extend(archived_space_folders)
+    
+    print('Found {0} folders'.format(len(folders)))
+
+    print('Generating AC folder data')
+    for folder in tqdm(folders, "Folders"):
+        acronym = re.split(r"[\[\(:;]", folder['name'])[0].strip()
+        md = clickup.get_or_create_list(folder['id'], '_Metadata')
+        md_tasks = clickup.get_tasks(md['id'])
+        info_task = [task for task in md_tasks if task['name'] == acronym]
+
+        if len(info_task):
+            # Bazinga!
+            task = info_task[0]
+            
+            cf = [field for field in task['custom_fields'] if field['id'] == '1fabc62c-b9b9-42ef-b3f3-0158f2106ae2']
+            if len(cf) and 'value' in cf[0]:
+                # Project was imported from AC and we have a valid AC ID!
+                ac_id = cf[0]['value']
+                folders_map[ac_id] = folder['id']
+
     projects_json = glob((os.path.join(path, "attachments", "*.json")))
     for project_json in tqdm(projects_json, desc="Attachments"):
         with open(project_json) as f:
@@ -246,7 +276,7 @@ def import_ac_attachments(
                 a for a in attachments if a["class"] != "GoogleDriveAttachment"
             ]
 
-            for attachment in attachments:
+            for attachment in tqdm(attachments):
 
                 a_id = attachment["id"]
                 a_name = attachment["name"]
@@ -255,26 +285,7 @@ def import_ac_attachments(
                     f"{a_id}__{a_name}",
                 )
 
-                if "parent_type" in attachment:
-                    if (
-                        attachment["parent_type"] == "Task"
-                        and tasks[attachment["parent_id"]] is not None
-                    ):
-                        # Attach to task
-                        task = tasks[attachment["parent_id"]]["id"]
-                        clickup.upload_attachment_to_task(task, a_name, file_path)
-                        continue
-
-                    elif attachment["parent_type"] == "Comment":
-                        # Was attached to comment, attach to task
-                        task = tasks[comment_map[attachment["parent_id"]]]["id"]
-                        clickup.upload_attachment_to_task(task, a_name, file_path)
-                        continue
-
-                # It was somewhere else, attach to an "AC Imported Attachments" task
-                # in the metadata list
-
-                folder = folders[attachment["project_id"]]
+                folder = folders_map[attachment["project_id"]]
                 task_list = clickup.get_or_create_list(folder["id"], "_Metadata")
 
                 data = {}
@@ -1230,4 +1241,4 @@ if __name__ == "__main__":
         )
 
     if import_attachments:
-        attachments = import_ac_attachments(clickup, tasks, comment_map, folders)
+        attachments = import_ac_attachments(clickup)
