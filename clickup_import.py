@@ -275,7 +275,7 @@ def import_ac_attachments(
 
             # Filter out google docs
             attachments = [
-                a for a in attachments if "Google" not in a["class"]]
+                a for a in attachments if "Google" not in a["class"]
             ]
 
             for attachment in tqdm(attachments, desc="Attachments"):
