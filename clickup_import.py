@@ -265,7 +265,7 @@ def import_ac_attachments(
             if len(cf) and 'value' in cf[0]:
                 # Project was imported from AC and we have a valid AC ID!
                 ac_id = cf[0]['value']
-                folders_map[str(ac_id)] = folder['id']
+                folders_map[ac_id] = folder['id']
 
     projects_json = glob((os.path.join(path, "attachments", "*.json")))
     for project_json in tqdm(projects_json, desc="Projects"):
@@ -287,7 +287,7 @@ def import_ac_attachments(
                     f"{a_id}__{a_name}",
                 )
 
-                folder = folders_map[attachment["project_id"]]
+                folder = folders_map[str(attachment["project_id"])]
                 task_list = clickup.get_or_create_list(folder["id"], "_Metadata")
 
                 data = {}
