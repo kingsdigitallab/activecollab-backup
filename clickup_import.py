@@ -250,6 +250,7 @@ def import_ac_attachments(
     print('Found {0} folders'.format(len(folders)))
 
     print('Generating AC folder data')
+
     for folder in tqdm(folders, "Folders"):
         acronym = re.split(r"[\[\(:;]", folder['name'])[0].strip()
         md = clickup.get_or_create_list(folder['id'], '_Metadata')
@@ -1173,6 +1174,7 @@ def html_to_markdown(html: str) -> str:
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description = "Description for my parser")
+    parser.add_argument("-a", "--attachments", action='store_true', help = "ONLY import attachments", required = False)
     parser.add_argument("-e", "--fixexpenses", action='store_true', help = "Fix expenses", required = False)
     parser.add_argument("-n", "--noattachments", action='store_true', help = "Don't Import Attachments", required = False)
     parser.add_argument("-l", "--limit", help = "Limit projects to import (e.g. -l 2,3,4)", required = False, default = "")
@@ -1181,6 +1183,13 @@ if __name__ == "__main__":
     if argument.noattachments:
         import_attachments = False
         print("Not importing attachments")
+    
+    if argument.attachments:
+        fix_expenses = False
+        import_attachments = True
+        import_projects = False
+        print("importing attachments")
+
 
     if argument.fixexpenses:
         import_projects = False
