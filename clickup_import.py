@@ -287,15 +287,15 @@ def import_ac_attachments(
                     f"{a_id}__{a_name}",
                 )
 
-                folder = folders_map[str(attachment["project_id"])]
-                task_list = clickup.get_or_create_list(int(folder), "_Metadata")
+                if str(attachment["project_id"]) in folders_map:
+                    folder = folders_map[str(attachment["project_id"])]
+                    task_list = clickup.get_or_create_list(int(folder), "_Metadata")
 
-                data = {}
-                task = clickup.get_or_create_task(
-                    task_list["id"], "ActiveCollab attachments", json.dumps(data)
-                )
-                clickup.upload_attachment_to_task(task["id"], a_name, file_path)
-                continue
+                    data = {}
+                    task = clickup.get_or_create_task(
+                        task_list["id"], "ActiveCollab attachments", json.dumps(data)
+                    )
+                    clickup.upload_attachment_to_task(task["id"], a_name, file_path)
 
 
 def import_ac_projects(
