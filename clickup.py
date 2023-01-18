@@ -1,7 +1,8 @@
 import json
 import logging
-from functools import lru_cache
 import time
+from functools import lru_cache
+
 import requests
 
 default_api_version = "v2"
@@ -80,12 +81,14 @@ class ClickUp:
             url, headers=self.get_headers(version, token), json=payload
         )
 
-        try: 
+        try:
             test = response.json()
-        except: 
+        except:
             # retry since if we're here, the response was not JSON as expected from the API.
             time.sleep(10)
-            response = requests.post(url, headers=self.get_headers(version, token), json=payload)
+            response = requests.post(
+                url, headers=self.get_headers(version, token), json=payload
+            )
             time.sleep(10)
         return self._handle_response(response, url, payload)
 
@@ -178,11 +181,9 @@ class ClickUp:
         return self.post(f"space/{space}/folder", payload)
 
     @lru_cache
-    def get_folders(self, space: int, archived: bool = False) -> dict:
+    def get_folders(self, space: int, archived: bool = False) -> list:
         if archived:
-            params = {
-                'archived': 'true'
-            }
+            params = {"archived": "true"}
             return self.get(f"space/{space}/folder", params)["folders"]
         else:
             return self.get(f"space/{space}/folder")["folders"]
@@ -230,11 +231,11 @@ class ClickUp:
         payload = dict(name=name)
 
         return self.post(f"folder/{folder}/list", payload)
-    
+
     @lru_cache
     def get_templates(self) -> list:
         templates = self.get(f"v1/team/{self.team_id}/templates", version="v1")
-        return templates['subcategory']['templates']
+        return templates["subcategory"]["templates"]
 
     def get_lists(self, folder: int) -> list:
         return self.get(f"folder/{folder}/list")["lists"]
