@@ -3,3 +3,4 @@ simplejson
 requests[security]
 python-json-logger
 tqdm
+urlextract
