@@ -181,6 +181,10 @@ class ClickUp:
         return self.post(f"space/{space}/folder", payload)
 
     @lru_cache
+    def get_folder(self, folder: int) -> dict:
+        return self.get(f"folder/{folder}")
+
+    @lru_cache
     def get_folders(self, space: int, archived: bool = False) -> list:
         if archived:
             params = {"archived": "true"}
