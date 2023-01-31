@@ -20,24 +20,33 @@ logger = logging.getLogger()
 
 
 def update_project_data(clickup: ClickUp, project_ids: list, projects: dict):
-    spaces = clickup.get_spaces()
-    for space in tqdm(spaces, desc="Spaces"):
-        logger.info(f"Space {space['name']}")
+    if project_ids:
+        for folder_id in tqdm(project_ids, desc="Projects"):
+            folder = clickup.get_folder(folder_id)
+            update_project(clickup, folder, projects)
+    else:
+        spaces = clickup.get_spaces()
+        for space in tqdm(spaces, desc="Spaces"):
+            logger.info(f"Space {space['name']}")
 
-        folders = clickup.get_folders(space["id"])
-        for folder in tqdm(folders, desc="Projects", leave=False):
-            logger.info(f"Project {folder['name']}")
+            folders = clickup.get_folders(space["id"], archived=True)
+            for folder in tqdm(folders, desc="Projects", leave=False):
+                update_project(clickup, folder, projects)
 
-            for l in folder["lists"]:
-                if l["name"] == "_Metadata":
-                    metadata = clickup.get_list(l["id"])
-                    for task in clickup.get_tasks(metadata["id"]):
-                        if folder["name"].startswith(task["name"]):
-                            update_task(clickup, folder, task, project_ids, projects)
+
+def update_project(clickup: ClickUp, folder: dict, projects: dict):
+    logger.info(f"Project {folder['name']}")
+
+    for l in folder["lists"]:
+        if l["name"] == "_Metadata":
+            metadata = clickup.get_list(l["id"])
+            for task in clickup.get_tasks(metadata["id"]):
+                if folder["name"].startswith(task["name"]):
+                    update_task(clickup, folder, task, projects)
 
 
 def update_task(
-    clickup: ClickUp, folder: dict, task: dict, project_ids: list, projects: dict
+    clickup: ClickUp, folder: dict, task: dict, projects: dict
 ):
     ac_project_id_field = filter(
         lambda x: x["name"] == "AC project ID", task["custom_fields"]
@@ -47,10 +56,6 @@ def update_task(
         return
 
     ac_project_id = list(ac_project_id_field)[0].get("value")
-    if project_ids and str(ac_project_id) not in project_ids:
-        logger.info(f"Skipping project {folder['name']}")
-        return
-
     if ac_project_id not in projects:
         logger.warning(
             f"Project {ac_project_id}: {folder['name']} not found in Sharepoint"
@@ -61,9 +66,10 @@ def update_task(
 
     for field in task["custom_fields"]:
         field_name = field["name"].strip()
+        field_value = field.get("value", None)
         if field_name in data:
             value = data[field_name]
-            if "value" not in field and value or field["type"] == "url":
+            if value and not field_value:
                 update_field(clickup, task, field, value)
 
 
@@ -130,7 +136,7 @@ if __name__ == "__main__":
     )
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--projects", help="Projects to import, comma separated")
+    parser.add_argument("-p", "--projects", help="ClickUp folder ids (projects) to import, comma separated")
     arguments = parser.parse_args()
 
     project_ids = None
